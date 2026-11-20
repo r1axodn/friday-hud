@@ -484,9 +484,9 @@
     },
     {
       type: 'youtube',
-      title: '빅 벅 버니 — 임베드 플레이어 동작 확인용 영상',
+      title: '임베드 플레이어 동작 확인용 데모 영상',
       body: '유튜브 카드는 `videoId` 또는 url 만 넣으면 바로 재생됩니다. (음소거 자동재생 · 탭하면 소리 켜짐)',
-      url: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+      url: 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
       source: 'YouTube',
       duration: 30
     },

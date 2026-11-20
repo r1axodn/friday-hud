@@ -266,6 +266,7 @@ body{
 /* ------------------------------------------------------------------- feed */
 .feed{
   grid-area:feed;
+  position:relative;
   display:flex; flex-direction:column; gap:9px;
   min-height:0; overflow-y:auto; overflow-x:hidden;
   padding:2px 3px 2px 2px;
@@ -273,6 +274,14 @@ body{
   scrollbar-width:thin; scrollbar-color:rgba(56,245,255,.3) transparent;
 }
 .feed::-webkit-scrollbar{ width:5px; }
+/* 빈 상태 안내 (가로 모드) */
+.feed:empty::after{
+  content:'◈  STANDBY — AWAITING PANEL';
+  position:absolute; left:0; right:0; top:50%; transform:translateY(-50%);
+  text-align:center;
+  font-family:var(--f-display); font-size:9px; letter-spacing:.26em;
+  color:rgba(56,245,255,.26); pointer-events:none;
+}
 .feed::-webkit-scrollbar-thumb{ background:rgba(56,245,255,.28); border-radius:3px; }
 
 /* ------ card ------ */
@@ -532,7 +541,7 @@ kbd{
   .feed{
     grid-area:auto;                 /* 세로 모드에서는 하단 고정 시트 */
     position:fixed; left:0; right:0; bottom:0; z-index:50;
-    max-height:56dvh;
+    max-height:46dvh;
     padding: 14px calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
              calc(12px + env(safe-area-inset-left));
     background: linear-gradient(180deg, rgba(3,7,11,0) 0%, rgba(3,7,11,.82) 8%, rgba(3,7,11,.97) 26%);
@@ -542,7 +551,8 @@ kbd{
   }
   @keyframes sheetUp{ from{ transform: translateY(30px); opacity:.4 } to{ transform:none; opacity:1 } }
   .feed:empty{ display:none; }
-  .card-body{ max-height:30vh; }
+  .card-body{ max-height:20vh; }
+  .card-media img{ max-height:24vh; }
   .brand-txt p{ display:none; }
   .hint{ display:none; }
 }
