@@ -654,7 +654,7 @@
       '<div class="card-actions">' +
         '<button class="icon-btn act-size" type="button" title="창을 화면 가득 크게" aria-label="창을 화면 가득 크게" aria-pressed="false">⤢</button>' +
         '<button class="icon-btn act-expand" type="button" title="카드 전체화면으로 보기" aria-label="카드 전체화면으로 보기">▣</button>' +
-        '<button class="icon-btn act-pin" type="button" title="고정 (자동으로 사라지지 않게)" aria-label="고정" aria-pressed="false">◈</button>' +
+        '<button class="icon-btn act-pin" type="button" title="고정 (오래된 창 정리에서 제외)" aria-label="고정" aria-pressed="false">◈</button>' +
         '<button class="icon-btn act-close" type="button" title="닫기" aria-label="닫기">✕</button>' +
       '</div></div>';
 
@@ -734,29 +734,23 @@
         raise(el);
       } else {
         state.pinned.delete(el.dataset.id);
-        scheduleDismiss(el, panel);
+        scheduleDismiss(el);
       }
     });
 
     return el;
   }
 
-  function scheduleDismiss(el, panel) {
-    var dur = panel && panel.duration != null ? Number(panel.duration) : 25;
-    if (panel && panel.pinned) dur = 0;
+  /* 플로팅 창은 스스로 사라지지 않는다.
+     · 자동 닫힘 타이머와 .card-progress 바를 돌리지 않음 (DB 의 duration 값은 무시)
+     · 닫히는 경우: 사용자가 ✕ 를 누를 때, ESC 로 가장 위 창을 닫을 때,
+       MAX_CARDS(6) 를 넘겨 오래된 창이 정리될 때(capCards) 뿐.
+     · 상단 알림 배너(alert)의 자동 사라짐은 showBanner 쪽에서 따로 처리한다. */
+  function scheduleDismiss(el) {
     clearTimeout(el._timer);
+    el._timer = null;
     var pg = el.querySelector('.card-progress');
-    if (!dur || dur <= 0) {
-      if (pg) pg.remove();
-      return;
-    }
-    if (!pg) {
-      pg = document.createElement('div');
-      pg.className = 'card-progress';
-      el.appendChild(pg);
-    }
-    pg.style.animationDuration = dur + 's';
-    el._timer = setTimeout(function () { dismiss(el); }, dur * 1000);
+    if (pg) pg.remove();
   }
 
   function dismiss(el) {
@@ -808,7 +802,7 @@
 
     capCards();
     layout();
-    scheduleDismiss(el, panel);
+    scheduleDismiss(el);
     ping();
     return el;
   }
