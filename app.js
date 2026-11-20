@@ -179,12 +179,16 @@
      ================================================================== */
   function isCompact() { return window.innerWidth <= 640; }
 
-  /* 창이 놓일 수 있는 영역: 상단바 아래 ~ 하단 계기 위 */
+  /* 창이 놓일 수 있는 영역: 상단바(긴급 배너 포함) 아래 ~ 하단 계기 위 */
   function area() {
     var t = topEl.getBoundingClientRect();
     var b = bottomEl.getBoundingClientRect();
     var p = isCompact() ? 6 : 12;
     var x0 = p, y0 = Math.round(t.bottom + 6);
+    if (bannersEl.children.length) {
+      var bn = bannersEl.getBoundingClientRect();
+      if (bn.height > 0 && bn.bottom > y0 - 6) y0 = Math.round(bn.bottom + 8);
+    }
     var x1 = window.innerWidth - p, y1 = Math.round(b.top - 6);
     return { x0: x0, y0: y0, x1: x1, y1: y1, w: Math.max(60, x1 - x0), h: Math.max(60, y1 - y0) };
   }
@@ -704,6 +708,7 @@
     el.querySelector('.act-close').addEventListener('click', function () { kill(el, 'out'); });
     bannersEl.appendChild(el);
     syncBannerOffset();
+    requestLayout();
     var dur = panel.duration != null ? Number(panel.duration) : 25;
     if (dur > 0) el._timer = setTimeout(function () { kill(el, 'out'); }, dur * 1000);
     blip(660, 0.22, 0.05);
@@ -712,7 +717,7 @@
   function kill(el, cls) {
     clearTimeout(el._timer);
     el.classList.add(cls || 'out');
-    setTimeout(function () { el.remove(); syncBannerOffset(); }, 300);
+    setTimeout(function () { el.remove(); syncBannerOffset(); layout(); }, 300);
     syncBannerOffset();
   }
   function syncBannerOffset() {
