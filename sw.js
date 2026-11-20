@@ -1,5 +1,5 @@
 /* FRIDAY HUD — service worker (network-first, 오프라인 껍데기만 캐시) */
-const CACHE = 'friday-hud-v2';
+const CACHE = 'friday-hud-v3';
 const ASSETS = [
   './', './index.html', './style.css', './app.js',
   './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'

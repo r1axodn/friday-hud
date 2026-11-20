@@ -1,7 +1,8 @@
 /* ==========================================================================
    FRIDAY HUD — app.js
-   · 실시간 시계 / D-DAY / 텔레메트리
-   · Supabase Realtime(INSERT) → 카드 팝업 (news · youtube · image · briefing · alert)
+   · 화면 정중앙 고정 코어 시계 / D-DAY / 텔레메트리
+   · Supabase Realtime(INSERT) → 화면 전체에 뜨는 플로팅 홀로그램 창
+   · 창은 슬롯 배치(자동) + 드래그 이동 + 클릭 시 최상단
    · 연결이 없어도 ?demo=1 또는 DEMO POPUP 으로 연출 확인 가능
    ========================================================================== */
 (function () {
@@ -43,6 +44,7 @@
     return m ? m[1] : null;
   }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 
   var KST_DATE = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -83,13 +85,20 @@
   var pending = [];
 
   /* ---------------------------------------------------------------- view */
-  var feedEl = $('feed');
+  var stageEl = $('stage');
   var bannersEl = $('banners');
   var histEl = $('history');
   var focusEl = $('focus');
+  var topEl = document.querySelector('.top');
+  var bottomEl = $('bottom');
 
-  /* ---- 시계 ---- */
+  var zTop = 100;
+  var seq = 0;
+
+  /* --------------------------------------------------------------- 시간 */
   var WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+  var SEC_RING_LEN = 2 * Math.PI * 161;      /* r=161 */
+
   function tickClock() {
     var now = new Date();
     $('tH').textContent = pad(now.getHours());
@@ -98,15 +107,31 @@
     $('date').textContent = now.getFullYear() + '.' + pad(now.getMonth() + 1) + '.' + pad(now.getDate()) +
       ' (' + WEEK[now.getDay()] + ')';
     var key = dateKey(now);
+
+    /* 초침 링 */
+    var sr = $('secRing');
+    if (sr) sr.style.strokeDashoffset = (SEC_RING_LEN * (1 - (now.getSeconds() + now.getMilliseconds() / 1000) / 60)).toFixed(1);
+
     $('lockTime').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
     $('lockDate').textContent = now.getFullYear() + '.' + pad(now.getMonth() + 1) + '.' + pad(now.getDate()) +
       ' (' + WEEK[now.getDay()] + ')';
+
     var e = dday(EXAM_START, key);
     $('dExam').textContent = e.text;
     $('dExam').className = 'stat-v ' + e.tone;
     var s = dday(SUNEUNG, key);
     $('dSuneung').textContent = s.text;
     $('dSuneung').className = 'stat-v ' + s.tone;
+
+    /* 코어 하단: 가장 가까운 일정 */
+    var next = dayDiff(key, EXAM_START);
+    var nx = $('coreNext');
+    if (nx) {
+      nx.innerHTML = next > 0
+        ? 'NEXT <b>' + e.text + '</b> 기말고사 · ' + EXAM_START.replace(/-/g, '.')
+        : 'NEXT <b>' + s.text + '</b> 수능 · ' + SUNEUNG.replace(/-/g, '.');
+    }
+
     $('uptime').textContent = hhmmss(Date.now() - state.start);
     $('teleClock').textContent = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
       ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
@@ -116,24 +141,16 @@
     }
   }
 
-  /* ---- 시계 크기 맞추기 ---- */
+  /* ---- 코어(시계) 크기: 화면 대비 + 창이 비켜설 공간 확보 ---- */
   function fitClock() {
-    var wrap = document.querySelector('.clock-wrap');
-    if (!wrap) return;
-    var h = wrap.clientHeight || 0, w = wrap.clientWidth || 0;
-    var base = Math.min(h, w);
-    var size = Math.max(24, Math.min(base * 0.128, 108));
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var size = clamp(Math.min(vw * 0.12, vh * 0.18), 34, 132);
     document.documentElement.style.setProperty('--clk', size.toFixed(1) + 'px');
+    var d = clamp(Math.min(vw * 0.62, vh * 0.92), 210, 760);
+    document.documentElement.style.setProperty('--coreD', d.toFixed(0) + 'px');
 
-    /* 세로 모드: 팝업 시트가 D-DAY 줄을 가리지 않도록 그 위에 띄움 */
-    var st = document.querySelector('.stats');
-    if (st) {
-      var top = st.getBoundingClientRect().top;
-      var clear = Math.round(window.innerHeight - top + 16);
-      if (clear > 40 && clear < window.innerHeight * 0.6) {
-        document.documentElement.style.setProperty('--sheet-bottom', clear + 'px');
-      }
-    }
+    var t = topEl.getBoundingClientRect();
+    document.documentElement.style.setProperty('--top-h', Math.round(t.bottom + 4) + 'px');
   }
 
   /* ---- 링 눈금 ---- */
@@ -144,7 +161,7 @@
     for (var i = 0; i < 60; i++) {
       var a = (i * 6 - 90) * Math.PI / 180;
       var big = i % 5 === 0;
-      var r1 = 184, r2 = big ? 172 : 178;
+      var r1 = 188, r2 = big ? 176 : 182;
       var ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       ln.setAttribute('x1', (200 + r1 * Math.cos(a)).toFixed(2));
       ln.setAttribute('y1', (200 + r1 * Math.sin(a)).toFixed(2));
@@ -154,6 +171,247 @@
       frag.appendChild(ln);
     }
     g.appendChild(frag);
+  }
+
+  /* ==================================================================
+     배치 엔진 — 화면 전체를 쓰는 플로팅 창
+     ================================================================== */
+  function isCompact() { return window.innerWidth <= 640; }
+
+  /* 창이 놓일 수 있는 영역: 상단바 아래 ~ 하단 계기 위 */
+  function area() {
+    var t = topEl.getBoundingClientRect();
+    var b = bottomEl.getBoundingClientRect();
+    var p = isCompact() ? 6 : 12;
+    var x0 = p, y0 = Math.round(t.bottom + 6);
+    var x1 = window.innerWidth - p, y1 = Math.round(b.top - 6);
+    return { x0: x0, y0: y0, x1: x1, y1: y1, w: Math.max(60, x1 - x0), h: Math.max(60, y1 - y0) };
+  }
+
+  /* 시계 글자가 차지하는 영역 — 창은 이 안쪽을 비운다 */
+  function coreSafe() {
+    var el = document.querySelector('.core-body');
+    var c = el.getBoundingClientRect();
+    var g = 14;
+    return {
+      x0: c.left - g, y0: c.top - g, x1: c.right + g, y1: c.bottom + g,
+      cx: (c.left + c.right) / 2, cy: (c.top + c.bottom) / 2
+    };
+  }
+
+  function fitRect(r, A) {
+    var w = Math.min(r.w, A.w), h = Math.min(r.h, A.h);
+    return {
+      x: clamp(r.x, Math.min(A.x0, A.x1 - w), Math.max(A.x0, A.x1 - w)),
+      y: clamp(r.y, Math.min(A.y0, A.y1 - h), Math.max(A.y0, A.y1 - h)),
+      w: Math.max(120, w), h: Math.max(120, h)
+    };
+  }
+
+  /* 좌·우 두 열 + 위·아래 분할 (가로 화면) */
+  function sideSlots(A, C, n) {
+    var g = 14;
+    var leftMax = (C.x0 - g) - A.x0;
+    var rightMax = A.x1 - (C.x1 + g);
+    var maxW = Math.min(leftMax, rightMax);
+    var pref = n === 1 ? 0.46 : n === 2 ? 0.42 : n === 3 ? 0.36 : n === 4 ? 0.34 : 0.30;
+    var w = clamp(Math.min(A.w * pref, maxW), 200, 640);
+    var xL = A.x0, xR = A.x1 - w;
+    var hHalf = (A.h - g) / 2;
+    var s;
+
+    if (n === 1) {
+      var h1 = Math.min(A.h * 0.88, 680);
+      s = [{ x: xR, y: A.y0 + (A.h - h1) / 2, w: w, h: h1 }];
+    } else if (n === 2) {
+      var h2 = Math.min(A.h * 0.82, 640);
+      s = [{ x: xR, y: A.y0 + (A.h - h2) / 2, w: w, h: h2 },
+           { x: xL, y: A.y0 + (A.h - h2) / 2, w: w, h: h2 }];
+    } else if (n === 3) {
+      s = [{ x: xR, y: A.y0, w: w, h: A.h },
+           { x: xL, y: A.y0, w: w, h: hHalf },
+           { x: xL, y: A.y0 + hHalf + g, w: w, h: hHalf }];
+    } else if (n === 4) {
+      s = [{ x: xR, y: A.y0, w: w, h: hHalf },
+           { x: xR, y: A.y0 + hHalf + g, w: w, h: hHalf },
+           { x: xL, y: A.y0, w: w, h: hHalf },
+           { x: xL, y: A.y0 + hHalf + g, w: w, h: hHalf }];
+    } else {
+      var hh = Math.max(160, hHalf * 0.82);
+      var yMid = clamp(C.cy - hh / 2, A.y0, A.y1 - hh);
+      s = [{ x: xR, y: A.y0, w: w, h: hh },
+           { x: xL, y: A.y0, w: w, h: hh },
+           { x: xR, y: A.y1 - hh, w: w, h: hh },
+           { x: xL, y: A.y1 - hh, w: w, h: hh },
+           { x: xR - 20, y: yMid, w: w, h: hh },
+           { x: xL + 20, y: yMid + 18, w: w, h: hh }];
+    }
+    return s.map(function (r) { return fitRect(r, A); });
+  }
+
+  /* 세로 화면: 시계 위·아래 띠에 2열로 */
+  function bandSlots(A, C, n) {
+    var g = 14;
+    var belowTop = C.y1 + g, belowH = A.y1 - belowTop;
+    var aboveBot = C.y0 - g, aboveH = aboveBot - A.y0;
+    var cols = A.w >= 480 ? 2 : 1;
+    var w = (A.w - g * (cols - 1)) / cols;
+    var slots = [];
+
+    function fill(zoneTop, zoneH) {
+      if (zoneH < 140 || slots.length >= n) return;
+      var rows = zoneH > 470 ? 2 : 1;
+      var h = Math.min((zoneH - g * (rows - 1)) / rows, 470);
+      if (h < 130) return;
+      for (var r = 0; r < rows && slots.length < n; r++) {
+        for (var c = 0; c < cols && slots.length < n; c++) {
+          slots.push({ x: A.x0 + c * (w + g), y: zoneTop + r * (h + g), w: w, h: h });
+        }
+      }
+    }
+    fill(belowTop, belowH);
+    fill(A.y0, aboveH);
+    return slots.map(function (r) { return fitRect(r, A); });
+  }
+
+  /* 폰: 화면 폭을 꽉 쓰는 계단식 창 */
+  function compactSlots(A, n) {
+    var g = 8;
+    var cols = A.w >= 620 ? 2 : 1;
+    var w = (A.w - g * (cols - 1)) / cols;
+    var h = Math.min(A.h, Math.max(190, Math.min(A.h * 0.52, 380)));
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var row = Math.floor(i / cols);
+      var col = i % cols;
+      var dx = Math.min(i * 4, 16);
+      var dy = Math.min(row * 44, Math.max(0, A.h - h));
+      out.push({ x: A.x0 + col * (w + g) + dx, y: A.y0 + dy, w: w - dx, h: h });
+    }
+    return out.map(function (r) { return fitRect(r, A); });
+  }
+
+  function computeSlots(A, C, n) {
+    if (isCompact()) return compactSlots(A, n);
+    var sideRoom = Math.min((C.x0 - A.x0), (A.x1 - C.x1));
+    if (sideRoom >= 250 && A.h >= 300) return sideSlots(A, C, n);
+    var bands = bandSlots(A, C, n);
+    if (bands.length >= n) return bands;
+    if (bands.length) {
+      var rest = compactSlots(A, n - bands.length);
+      return bands.concat(rest.map(function (r, i) {
+        return { x: r.x, y: r.y + i * 6, w: r.w, h: r.h };
+      }));
+    }
+    return compactSlots(A, n);
+  }
+
+  function applyRect(el, r) {
+    el.style.left = Math.round(r.x) + 'px';
+    el.style.top = Math.round(r.y) + 'px';
+    el.style.width = Math.round(r.w) + 'px';
+    el.style.height = Math.round(r.h) + 'px';
+  }
+
+  function layout(force) {
+    var cards = [].slice.call(stageEl.querySelectorAll('.card:not(.out)'));
+    if (!cards.length) return;
+    var A = area(), C = coreSafe();
+    var slots = computeSlots(A, C, cards.length);
+    cards.sort(function (a, b) { return (b._seq || 0) - (a._seq || 0); });   /* 최신 먼저 */
+
+    var si = 0;
+    for (var i = 0; i < cards.length; i++) {
+      var el = cards[i];
+      if (el._moved && !force) {
+        var r = el.getBoundingClientRect();
+        applyRect(el, fitRect({ x: r.left, y: r.top, w: r.width, h: r.height }, A));
+        continue;
+      }
+      var s = slots[si] || slots[slots.length - 1];
+      si++;
+      if (s) applyRect(el, s);
+    }
+  }
+
+  var layoutRAF = 0;
+  function requestLayout(force) {
+    if (layoutRAF) return;
+    layoutRAF = requestAnimationFrame(function () {
+      layoutRAF = 0;
+      layout(force);
+    });
+  }
+
+  function tidy() {
+    var cards = [].slice.call(stageEl.querySelectorAll('.card'));
+    for (var i = 0; i < cards.length; i++) { cards[i]._moved = false; }
+    layout(true);
+  }
+
+  /* --------------------------------------------------------------- 창 조작 */
+  function raise(el) {
+    el.style.zIndex = String(++zTop);
+  }
+
+  function startDrag(e, el) {
+    if (e.button != null && e.button !== 0) return;
+    var bar = e.currentTarget;
+    if (e.target.closest && e.target.closest('.card-actions')) return;
+    e.preventDefault();
+    raise(el);
+    el._moved = true;
+
+    var stageRect = stageEl.getBoundingClientRect();
+    var r = el.getBoundingClientRect();
+    var ox = r.left - stageRect.left, oy = r.top - stageRect.top;
+    var sx = e.clientX, sy = e.clientY;
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var A = area();
+
+    el.classList.add('dragging');
+    document.body.classList.add('is-dragging');
+    if (bar.setPointerCapture) { try { bar.setPointerCapture(e.pointerId); } catch (err) {} }
+
+    function move(ev) {
+      var nx = clamp(ox + ev.clientX - sx, Math.min(A.x0, A.x1 - w), Math.max(A.x0, A.x1 - w));
+      var ny = clamp(oy + ev.clientY - sy, Math.min(A.y0, A.y1 - h), Math.max(A.y0, A.y1 - h));
+      el.style.left = Math.round(nx) + 'px';
+      el.style.top = Math.round(ny) + 'px';
+    }
+    function up() {
+      bar.removeEventListener('pointermove', move);
+      bar.removeEventListener('pointerup', up);
+      bar.removeEventListener('pointercancel', up);
+      bar.removeEventListener('lostpointercapture', up);
+      el.classList.remove('dragging');
+      document.body.classList.remove('is-dragging');
+    }
+    bar.addEventListener('pointermove', move);
+    bar.addEventListener('pointerup', up);
+    bar.addEventListener('pointercancel', up);
+    bar.addEventListener('lostpointercapture', up);
+  }
+
+  /* 시차(parallax): 마우스가 움직이면 창이 살짝 따라 흐른다 */
+  var mouseX = 0, mouseY = 0, paraRAF = 0;
+  function parallaxMove(e) {
+    if (e.pointerType && e.pointerType !== 'mouse') return;
+    mouseX = e.clientX; mouseY = e.clientY;
+    if (paraRAF) return;
+    paraRAF = requestAnimationFrame(function () {
+      paraRAF = 0;
+      var dx = (mouseX / window.innerWidth - 0.5) * 2;
+      var dy = (mouseY / window.innerHeight - 0.5) * 2;
+      var cards = stageEl.querySelectorAll('.card');
+      for (var i = 0; i < cards.length; i++) {
+        var el = cards[i];
+        if (el.classList.contains('dragging')) continue;
+        var d = el.dataset.depth || '0.6';
+        el.style.setProperty('--px', (-dx * 9 * d).toFixed(1) + 'px');
+        el.style.setProperty('--py', (-dy * 7 * d).toFixed(1) + 'px');
+      }
+    });
   }
 
   /* ---- 연결 상태 ---- */
@@ -170,6 +428,8 @@
     pill.className = 'pill ' + (kind === 'live' ? 'on' : kind === 'off' ? 'off' : kind === 'init' ? '' : 'warn');
     $('netText').textContent = text || NET_TEXT[kind] || String(kind).toUpperCase();
     $('connShort').textContent = kind === 'live' ? 'realtime link' : kind === 'setup' ? 'sql required' : kind === 'demo' ? 'demo mode' : String(kind);
+    var cl = $('coreLink');
+    if (cl) cl.textContent = kind === 'live' ? 'LIVE' : kind === 'demo' ? 'DEMO' : kind === 'setup' ? 'SETUP' : kind === 'off' ? 'OFFLINE' : 'LINK';
     var tele = {
       live: 'REALTIME LINK ACTIVE',
       demo: 'DEMO MODE — NO REALTIME LINK',
@@ -248,7 +508,7 @@
     return out;
   }
 
-  /* --------------------------------------------------------- 카드 만들기 */
+  /* --------------------------------------------------------- 창 만들기 */
   function tagLabel(t) { return TYPE_LABEL[t] || 'PANEL'; }
   function clockLabel(iso) {
     var d = iso ? new Date(iso) : new Date();
@@ -256,19 +516,28 @@
     return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   }
 
-  function buildCard(panel) {
+  function buildCard(panel, opts) {
+    opts = opts || {};
     var type = TYPE_LABEL[panel.type] ? panel.type : 'news';
     var el = document.createElement('article');
     el.className = 'card';
     el.dataset.type = type;
     el.dataset.id = panel.id || ('x' + Date.now());
+    el._seq = ++seq;
+    el.dataset.depth = (0.35 + ((seq * 37) % 60) / 100).toFixed(2);   /* 창마다 다른 깊이 */
 
     var src = panel.source ? '<span class="card-src">' + esc(panel.source) + '</span>' : '';
-    var head = '<div class="card-head">' +
+    var bar = '<div class="card-bar">' +
+      '<span class="grip" aria-hidden="true"></span>' +
       '<span class="tag">' + tagLabel(type) + '</span>' + src +
-      '<span class="card-time">' + clockLabel(panel.created_at) + '</span></div>';
+      '<span class="card-time">' + clockLabel(panel.created_at) + '</span>' +
+      '<div class="card-actions">' +
+        '<button class="icon-btn act-expand" type="button" title="전체화면으로 보기" aria-label="전체화면으로 보기">⤢</button>' +
+        '<button class="icon-btn act-pin" type="button" title="고정 (자동으로 사라지지 않게)" aria-label="고정" aria-pressed="false">◈</button>' +
+        '<button class="icon-btn act-close" type="button" title="닫기" aria-label="닫기">✕</button>' +
+      '</div></div>';
 
-    var html = head;
+    var html = '';
     var title = panel.title ? '<h3 class="card-title">' + esc(panel.title) + '</h3>' : '';
 
     if (type === 'youtube') {
@@ -293,11 +562,7 @@
       }
       if (panel.caption) html += '<p class="caption">' + esc(panel.caption) + '</p>';
       if (panel.body) html += '<div class="card-body">' + mdLite(panel.body) + '</div>';
-    } else if (type === 'briefing') {
-      html += title;
-      if (panel.body) html += '<div class="card-body">' + mdLite(panel.body) + '</div>';
     } else {
-      /* news · alert */
       html += title;
       if (panel.body) html += '<div class="card-body">' + mdLite(panel.body) + '</div>';
     }
@@ -310,15 +575,15 @@
     } else if (link && type === 'youtube') {
       foot += '<a class="card-link" href="' + esc(link) + '" target="_blank" rel="noopener noreferrer">YouTube ↗</a>';
     }
-    foot += '<div class="card-actions">' +
-      '<button class="icon-btn act-expand" type="button" title="전체화면으로 보기" aria-label="전체화면으로 보기">⤢</button>' +
-      '<button class="icon-btn act-pin" type="button" title="고정 (자동으로 사라지지 않게)" aria-label="고정" aria-pressed="false">◈</button>' +
-      '<button class="icon-btn act-close" type="button" title="닫기" aria-label="닫기">✕</button>' +
-      '</div></div>';
+    foot += '<span class="card-id">p ' + pad(seq) + '</span></div>';
 
-    el.innerHTML = html + foot;
+    el.innerHTML = bar + '<div class="card-scroll">' + html + '</div>' + foot;
 
     /* 동작 */
+    var barEl = el.querySelector('.card-bar');
+    el.addEventListener('pointerdown', function () { raise(el); });
+    if (!opts.flat) barEl.addEventListener('pointerdown', function (e) { startDrag(e, el); });
+
     el.querySelector('.act-close').addEventListener('click', function () { dismiss(el); });
     el.querySelector('.act-expand').addEventListener('click', function () { openFocus(panel); });
     var pinBtn = el.querySelector('.act-pin');
@@ -332,8 +597,10 @@
         clearTimeout(el._timer);
         var pg = el.querySelector('.card-progress');
         if (pg) pg.remove();
+        raise(el);
       } else {
         state.pinned.delete(el.dataset.id);
+        scheduleDismiss(el, panel);
       }
     });
 
@@ -361,29 +628,26 @@
   function dismiss(el) {
     if (!el || el.classList.contains('out')) return;
     clearTimeout(el._timer);
-    el.style.setProperty('--h', (el.offsetHeight + 9) + 'px');
     el.classList.add('out');
-    setTimeout(function () { if (el.parentNode) el.remove(); }, 300);
-  }
-
-  /* 사용자가 위쪽을 보고 있을 때만 맨 위로 (임베드 로드 등으로 스크롤이 밀리는 것 방지) */
-  function keepTop() {
-    if (feedEl.scrollTop < 60) feedEl.scrollTop = 0;
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+      layout();
+    }, 300);
   }
 
   function capCards() {
-    var cards = feedEl.querySelectorAll('.card:not(.pinned)');
-    if (cards.length > MAX_CARDS) {
-      for (var i = MAX_CARDS; i < cards.length; i++) dismiss(cards[i]);
+    var cards = [].slice.call(stageEl.querySelectorAll('.card:not(.out)'));
+    var free = cards.filter(function (c) { return !c.classList.contains('pinned'); });
+    if (free.length > MAX_CARDS) {
+      for (var i = MAX_CARDS; i < free.length; i++) dismiss(free[i]);
     }
-    /* 고정 카드도 너무 쌓이면 오래된 것부터 정리 (전체 6장 상한) */
-    var all = feedEl.querySelectorAll('.card');
+    var all = [].slice.call(stageEl.querySelectorAll('.card:not(.out)'));
     if (all.length > MAX_CARDS + 2) {
       for (var j = MAX_CARDS + 2; j < all.length; j++) dismiss(all[j]);
     }
   }
 
-  /* ------------------------------------------------------------ 카드 띄우기 */
+  /* ------------------------------------------------------------ 창 띄우기 */
   function pushCard(panel) {
     var el = buildCard(panel);
     if (state.pinned.has(el.dataset.id)) {
@@ -391,11 +655,20 @@
       var pb = el.querySelector('.act-pin');
       if (pb) { pb.classList.add('pinned'); pb.setAttribute('aria-pressed', 'true'); }
     }
-    feedEl.insertBefore(el, feedEl.firstChild);
-    keepTop();                               /* 새 카드가 항상 보이도록 */
+
+    /* 첫 위치는 애니메이션 없이 즉시 */
+    el.style.transition = 'none';
+    stageEl.appendChild(el);
+    raise(el);
+    layout();
+
+    requestAnimationFrame(function () {
+      el.style.transition = '';
+    });
+
     capCards();
-    setTimeout(keepTop, 350);
-    setTimeout(keepTop, 1200);
+    layout();
+    scheduleDismiss(el, panel);
     ping();
     return el;
   }
@@ -414,7 +687,6 @@
     el.querySelector('.act-close').addEventListener('click', function () { kill(el, 'out'); });
     bannersEl.appendChild(el);
     syncBannerOffset();
-    keepTop();
     var dur = panel.duration != null ? Number(panel.duration) : 25;
     if (dur > 0) el._timer = setTimeout(function () { kill(el, 'out'); }, dur * 1000);
     blip(660, 0.22, 0.05);
@@ -426,7 +698,6 @@
     setTimeout(function () { el.remove(); syncBannerOffset(); }, 300);
     syncBannerOffset();
   }
-  /* 배너가 떠 있는 동안 카드 영역이 가려지지 않게 위쪽 여백 확보 + 헤더는 가리지 않기 */
   function syncBannerOffset() {
     var h = 0, kids = bannersEl.children;
     for (var i = 0; i < kids.length; i++) {
@@ -434,11 +705,8 @@
       h += (kids[i].offsetHeight || 0) + 6;
     }
     document.documentElement.style.setProperty('--banner-h', h + 'px');
-    var topEl = document.querySelector('.top');
-    if (topEl) {
-      var bottom = topEl.getBoundingClientRect().bottom;
-      document.documentElement.style.setProperty('--top-h', Math.round(bottom + 4) + 'px');
-    }
+    var t = topEl.getBoundingClientRect();
+    document.documentElement.style.setProperty('--top-h', Math.round(t.bottom + 4) + 'px');
   }
 
   /* --------------------------------------------------------------- 히스토리 */
@@ -466,9 +734,10 @@
       histEl.appendChild(li);
     }
     $('railEmpty').hidden = history.length > 0;
+    requestLayout();
   }
   $('btnClear').addEventListener('click', function () {
-    var cards = feedEl.querySelectorAll('.card');
+    var cards = stageEl.querySelectorAll('.card');
     for (var i = 0; i < cards.length; i++) dismiss(cards[i]);
     history.length = 0;
     renderHistory();
@@ -481,8 +750,10 @@
     focusEl.innerHTML = '<div class="focus-inner"></div>' +
       '<button class="focus-close" type="button" aria-label="닫기">✕</button>';
     var inner = focusEl.querySelector('.focus-inner');
-    var card = buildCard(panel);
+    var card = buildCard(panel, { flat: true });
     card.classList.add('pinned');
+    var bar = card.querySelector('.card-bar');
+    if (bar) { bar.style.cursor = 'default'; bar.style.touchAction = 'auto'; }
     var pg = card.querySelector('.card-progress'); if (pg) pg.remove();
     inner.appendChild(card);
     focusEl.hidden = false;
@@ -526,23 +797,23 @@
       body: '업계에 따르면 평택 P4 라인 일부를 HBM4 전용으로 전환한다는 계획이 확인됐어요. **SK하이닉스**도 6세대 HBM 샘플 공급을 늘리는 중.',
       source: '연합뉴스',
       url: 'https://news.google.com/search?q=HBM4',
-      duration: 25
+      duration: 40
     },
     {
       type: 'youtube',
       title: '임베드 플레이어 동작 확인용 데모 영상',
-      body: '유튜브 카드는 `videoId` 또는 url 만 넣으면 바로 재생됩니다. (카드를 누르면 플레이어가 켜집니다)',
+      body: '유튜브 창은 `videoId` 또는 url 만 넣으면 바로 재생됩니다.',
       url: 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
       source: 'YouTube',
-      duration: 30
+      duration: 45
     },
     {
       type: 'image',
-      title: '이미지 카드 — 사진 + 캡션',
+      title: '이미지 창 — 사진 + 캡션',
       image_url: 'https://picsum.photos/seed/fridayhud/1200/720',
       caption: '이미지는 image_url 한 줄로. 캡션은 caption 필드.',
       source: 'DEMO',
-      duration: 25
+      duration: 40
     },
     {
       type: 'briefing',
@@ -558,6 +829,14 @@
       body: '미적분Ⅰ 진도 12p 남았습니다. 지금 20분만 채우면 오늘 목표 달성.',
       source: 'FRIDAY',
       duration: 20
+    },
+    {
+      type: 'news',
+      title: '수능 2028학년도 개편 — 통합형 수학·선택과목 폐지',
+      body: '2028학년도 수능은 수학이 통합형으로 바뀌고 선택과목이 폐지됩니다. **기하·미적분** 진도를 어떻게 가져갈지가 관건.',
+      source: '교육부',
+      url: 'https://www.moe.go.kr/',
+      duration: 45
     }
   ];
   var demoIdx = 0;
@@ -616,7 +895,7 @@
             addHistory(rows[i]);
           }
         }
-        /* 오래된 것부터 넣으면 최신이 맨 위에 온다 */
+        /* 오래된 것부터 넣으면 최신이 가장 좋은 자리를 받는다 */
         for (var j = pick.length - 1; j >= 0; j--) receive(pick[j], 'load');
         renderHistory();
         subscribe();
@@ -663,6 +942,7 @@
 
   /* ------------------------------------------------------------- 컨트롤 */
   $('btnDemo').addEventListener('click', function () { demoPopup(); });
+  $('btnTidy').addEventListener('click', function () { tidy(); toast('창을 화면 전체에 다시 펼쳤어요'); });
   $('btnSfx').addEventListener('click', function () {
     state.sfx = !state.sfx;
     this.setAttribute('aria-pressed', state.sfx ? 'true' : 'false');
@@ -703,11 +983,10 @@
     if (k === 'd') { demoPopup(); }
     else if (k === 'f') { toggleFullscreen(); }
     else if (e.key === 'Escape') {
-      if (!focusEl.hidden) closeFocus();
-      else {
-        var first = feedEl.querySelector('.card');
-        if (first) dismiss(first);
-      }
+      if (!focusEl.hidden) { closeFocus(); return; }
+      var tops = [].slice.call(stageEl.querySelectorAll('.card:not(.out)'))
+        .sort(function (a, b) { return (+b.style.zIndex || 0) - (+a.style.zIndex || 0); });
+      if (tops.length) dismiss(tops[0]);
     }
   });
 
@@ -746,7 +1025,7 @@
     locked = false;
     lockEl.classList.add('out');
     setTimeout(function () { lockEl.hidden = true; lockEl.classList.remove('out'); }, 420);
-    setTimeout(fitClock, 460);
+    setTimeout(function () { fitClock(); layout(true); }, 460);
     flushPending();
   }
   function lockNow() {
@@ -799,11 +1078,20 @@
     fitClock();
     tickClock();
     setInterval(tickClock, 250);
-    setTimeout(fitClock, 400);
+
     syncBannerOffset();
-    window.addEventListener('resize', function () { fitClock(); syncBannerOffset(); });
-    window.addEventListener('orientationchange', function () { setTimeout(function () { fitClock(); syncBannerOffset(); }, 250); });
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', fitClock);
+    window.addEventListener('resize', function () {
+      fitClock();
+      syncBannerOffset();
+      requestLayout();
+    });
+    window.addEventListener('orientationchange', function () {
+      setTimeout(function () { fitClock(); syncBannerOffset(); layout(); }, 260);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () { fitClock(); requestLayout(); });
+    }
+    document.addEventListener('pointermove', parallaxMove, { passive: true });
 
     var params = new URLSearchParams(location.search);
     var demoParam = params.get('demo');
@@ -816,6 +1104,9 @@
       setNet('init');
       bulkLoad();
     }
+
+    setTimeout(function () { fitClock(); layout(); }, 400);
+    setTimeout(function () { layout(); }, 1400);
 
     if (demoParam !== null && demoParam !== '0') {
       setTimeout(function () {
@@ -835,6 +1126,7 @@
           if (!res.error) subscribe();
         }, function () {});
       }
+      if (!document.hidden) { fitClock(); requestLayout(); }
     });
 
     /* PWA (https 에서만) */
@@ -843,7 +1135,10 @@
     }
 
     /* 디버그용 */
-    window.__hud = { state: state, demo: demoPopup, receive: receive, setNet: setNet };
+    window.__hud = {
+      state: state, demo: demoPopup, receive: receive, setNet: setNet,
+      layout: layout, tidy: tidy, slots: function () { return computeSlots(area(), coreSafe(), stageEl.querySelectorAll('.card').length); }
+    };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

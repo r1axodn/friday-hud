@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FRIDAY HUD">
-<meta name="description" content="FRIDAY HUD — 실시간 시계·D-DAY·Supabase Realtime 팝업 패널을 띄우는 아이언맨 스타일 HUD 화면">
+<meta name="description" content="FRIDAY HUD — 화면 중앙 시계·D-DAY 위로 떠오르는 아이언맨 스타일 플로팅 홀로그램 창">
 <title>FRIDAY HUD</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 <script>
   window.__errs = [];
   addEventListener("error", function (e) { window.__errs.push(String((e && e.message) || e)); });
@@ -59,6 +59,7 @@
         <span class="dot" aria-hidden="true"></span>
         <span id="netText">CONNECTING</span>
       </div>
+      <button class="btn" id="btnTidy" type="button" title="창을 화면 전체에 다시 펼치기">TIDY</button>
       <button class="btn" id="btnDemo" type="button">DEMO POPUP</button>
       <button class="btn ghost" id="btnSfx" type="button" aria-pressed="false" title="알림음 켜기/끄기">SFX</button>
       <button class="btn ghost" id="btnFull" type="button" title="전체화면 (아이패드: 화면 꽉 채우기)">FULL</button>
@@ -66,28 +67,42 @@
     </div>
   </header>
 
-  <!-- 중앙 코어 -->
-  <main class="core">
-    <div class="clock-wrap">
-      <div class="rings" aria-hidden="true">
-        <svg viewBox="0 0 400 400">
-          <g id="ticks"></g>
-          <circle class="ring thin" cx="200" cy="200" r="188"></circle>
-          <circle class="ring arc a1" cx="200" cy="200" r="170"></circle>
-          <circle class="ring dash" cx="200" cy="200" r="148"></circle>
-          <circle class="ring arc a2" cx="200" cy="200" r="122"></circle>
-          <circle class="ring faint" cx="200" cy="200" r="92"></circle>
-          <circle class="ring arc a3" cx="200" cy="200" r="66"></circle>
-        </svg>
-      </div>
+  <!-- 중앙 코어: 화면 정중앙에 고정되는 시계 · 회전 링 -->
+  <div class="core" id="core">
+    <div class="core-rings" aria-hidden="true">
+      <svg viewBox="0 0 400 400">
+        <g id="ticks"></g>
+        <circle class="ring thin" cx="200" cy="200" r="191"></circle>
+        <circle class="ring arc a1" cx="200" cy="200" r="176"></circle>
+        <circle class="ring sec" id="secRing" cx="200" cy="200" r="161"
+                transform="rotate(-90 200 200)"></circle>
+        <circle class="ring dash" cx="200" cy="200" r="142"></circle>
+        <circle class="ring arc a2" cx="200" cy="200" r="118"></circle>
+        <circle class="ring faint" cx="200" cy="200" r="88"></circle>
+        <circle class="ring arc a3" cx="200" cy="200" r="62"></circle>
+      </svg>
+    </div>
+    <div class="core-body">
+      <div class="core-tag"><i class="live" aria-hidden="true"></i>FRIDAY CORE<span class="sep">//</span><span id="coreLink">LINK</span></div>
       <div class="clock">
         <div class="time" id="time" aria-label="현재 시각">
           <span id="tH">--</span><i class="colon">:</i><span id="tM">--</span><i class="colon">:</i><span id="tS">--</span>
         </div>
         <div class="date" id="date">—</div>
       </div>
+      <div class="core-foot" id="coreNext">NEXT —</div>
     </div>
+    <span class="core-mark m1" aria-hidden="true"></span>
+    <span class="core-mark m2" aria-hidden="true"></span>
+    <span class="core-mark m3" aria-hidden="true"></span>
+    <span class="core-mark m4" aria-hidden="true"></span>
+  </div>
 
+  <!-- 플로팅 홀로그램 창 레이어 (화면 전체) -->
+  <div class="stage" id="stage" aria-live="polite" aria-label="실시간 패널"></div>
+
+  <!-- 하단 주변부 계기 -->
+  <div class="bottom" id="bottom">
     <div class="stats" id="stats">
       <div class="stat">
         <span class="stat-k">기말고사</span>
@@ -115,32 +130,27 @@
         <span class="stat-s">push → screen</span>
       </div>
     </div>
-  </main>
 
-  <!-- 실시간 팝업 패널 영역 -->
-  <aside class="feed" id="feed" aria-live="polite" aria-label="실시간 패널"></aside>
+    <section class="rail">
+      <div class="rail-head">
+        <span>RECENT FEED</span>
+        <button class="mini" id="btnClear" type="button">비우기</button>
+      </div>
+      <ul class="rail-list" id="history"></ul>
+      <p class="rail-empty" id="railEmpty">아직 받은 패널이 없어요 · <b>DEMO POPUP</b> 으로 미리 볼 수 있어요</p>
+    </section>
 
-  <!-- 최근 수신 기록 -->
-  <section class="rail">
-    <div class="rail-head">
-      <span>RECENT FEED</span>
-      <button class="mini" id="btnClear" type="button">비우기</button>
-    </div>
-    <ul class="rail-list" id="history"></ul>
-    <p class="rail-empty" id="railEmpty">아직 받은 패널이 없어요 · <b>DEMO POPUP</b> 으로 미리 볼 수 있어요</p>
-  </section>
-
-  <!-- 하단 텔레메트리 -->
-  <footer class="foot">
-    <div class="tele">
-      <span id="teleState">SYSTEM READY</span>
-      <span class="tele-sep">|</span>
-      <span id="teleSource">SUPABASE · vipaohlgodyrbjnsewuo</span>
-      <span class="tele-sep">|</span>
-      <span id="teleClock">—</span>
-    </div>
-    <div class="hint"><kbd>D</kbd> 데모 · <kbd>F</kbd> 전체화면 · <kbd>ESC</kbd> 닫기</div>
-  </footer>
+    <footer class="foot">
+      <div class="tele">
+        <span id="teleState">SYSTEM READY</span>
+        <span class="tele-sep">|</span>
+        <span id="teleSource">SUPABASE · vipaohlgodyrbjnsewuo</span>
+        <span class="tele-sep">|</span>
+        <span id="teleClock">—</span>
+      </div>
+      <div class="hint">창 제목줄을 끌어 옮기기 · <kbd>D</kbd> 데모 · <kbd>F</kbd> 전체화면 · <kbd>ESC</kbd> 닫기</div>
+    </footer>
+  </div>
 
 </div>
 
@@ -180,6 +190,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"
         onerror="window.__sbLoadFail=true"></script>
-<script src="app.js?v=12"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>
