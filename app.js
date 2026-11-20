@@ -269,10 +269,10 @@
       html += title;
       if (vid) {
         html += '<div class="card-media"><div class="yt">' +
-          '<iframe src="https://www.youtube-nocookie.com/embed/' + vid +
+          '<iframe src="https://www.youtube.com/embed/' + vid +
           '?playsinline=1&rel=0" title="' + esc(panel.title || 'YouTube') +
           '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"' +
-          ' allowfullscreen tabindex="-1" loading="lazy" referrerpolicy="no-referrer"></iframe></div></div>';
+          ' allowfullscreen tabindex="-1" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>';
       } else if (panel.url) {
         html += '<p class="caption">유튜브 주소를 해석하지 못했어요. 링크로 열어 주세요.</p>';
       }
