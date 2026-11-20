@@ -144,9 +144,10 @@
   /* ---- 코어(시계) 크기: 화면 대비 + 창이 비켜설 공간 확보 ---- */
   function fitClock() {
     var vw = window.innerWidth, vh = window.innerHeight;
-    var size = clamp(Math.min(vw * 0.12, vh * 0.18), 34, 132);
+    /* 링 지름을 먼저 정하고, 시계 글자는 링 안쪽(약 0.72 지름)에 들어오게 */
+    var d = clamp(Math.min(vw * 0.62, vh * 0.92), 210, 780);
+    var size = clamp(d * 0.135, 30, 118);
     document.documentElement.style.setProperty('--clk', size.toFixed(1) + 'px');
-    var d = clamp(Math.min(vw * 0.62, vh * 0.92), 210, 760);
     document.documentElement.style.setProperty('--coreD', d.toFixed(0) + 'px');
 
     var t = topEl.getBoundingClientRect();
