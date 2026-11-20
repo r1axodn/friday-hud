@@ -355,6 +355,11 @@
     if (cards.length > MAX_CARDS) {
       for (var i = MAX_CARDS; i < cards.length; i++) dismiss(cards[i]);
     }
+    /* 고정 카드도 너무 쌓이면 오래된 것부터 정리 (전체 6장 상한) */
+    var all = feedEl.querySelectorAll('.card');
+    if (all.length > MAX_CARDS + 2) {
+      for (var j = MAX_CARDS + 2; j < all.length; j++) dismiss(all[j]);
+    }
   }
 
   /* ------------------------------------------------------------ 카드 띄우기 */
@@ -398,7 +403,7 @@
     setTimeout(function () { el.remove(); syncBannerOffset(); }, 300);
     syncBannerOffset();
   }
-  /* 배너가 떠 있는 동안 카드 영역이 가려지지 않게 위쪽 여백 확보 */
+  /* 배너가 떠 있는 동안 카드 영역이 가려지지 않게 위쪽 여백 확보 + 헤더는 가리지 않기 */
   function syncBannerOffset() {
     var h = 0, kids = bannersEl.children;
     for (var i = 0; i < kids.length; i++) {
@@ -406,6 +411,11 @@
       h += (kids[i].offsetHeight || 0) + 6;
     }
     document.documentElement.style.setProperty('--banner-h', h + 'px');
+    var topEl = document.querySelector('.top');
+    if (topEl) {
+      var bottom = topEl.getBoundingClientRect().bottom;
+      document.documentElement.style.setProperty('--top-h', Math.round(bottom + 4) + 'px');
+    }
   }
 
   /* --------------------------------------------------------------- 히스토리 */
@@ -673,8 +683,9 @@
     fitClock();
     tickClock();
     setInterval(tickClock, 250);
-    window.addEventListener('resize', fitClock);
-    window.addEventListener('orientationchange', function () { setTimeout(fitClock, 250); });
+    syncBannerOffset();
+    window.addEventListener('resize', function () { fitClock(); syncBannerOffset(); });
+    window.addEventListener('orientationchange', function () { setTimeout(function () { fitClock(); syncBannerOffset(); }, 250); });
     if (window.visualViewport) window.visualViewport.addEventListener('resize', fitClock);
 
     var params = new URLSearchParams(location.search);
