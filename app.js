@@ -350,6 +350,11 @@
     setTimeout(function () { if (el.parentNode) el.remove(); }, 300);
   }
 
+  /* 사용자가 위쪽을 보고 있을 때만 맨 위로 (임베드 로드 등으로 스크롤이 밀리는 것 방지) */
+  function keepTop() {
+    if (feedEl.scrollTop < 60) feedEl.scrollTop = 0;
+  }
+
   function capCards() {
     var cards = feedEl.querySelectorAll('.card:not(.pinned)');
     if (cards.length > MAX_CARDS) {
@@ -371,9 +376,11 @@
       if (pb) { pb.classList.add('pinned'); pb.setAttribute('aria-pressed', 'true'); }
     }
     feedEl.insertBefore(el, feedEl.firstChild);
-    feedEl.scrollTop = 0;                    /* 새 카드가 항상 보이도록 */
+    keepTop();                               /* 새 카드가 항상 보이도록 */
     scheduleDismiss(el, panel);
     capCards();
+    setTimeout(keepTop, 350);
+    setTimeout(keepTop, 1200);
     ping();
     return el;
   }
@@ -392,7 +399,7 @@
     el.querySelector('.act-close').addEventListener('click', function () { kill(el, 'out'); });
     bannersEl.appendChild(el);
     syncBannerOffset();
-    feedEl.scrollTop = 0;
+    keepTop();
     var dur = panel.duration != null ? Number(panel.duration) : 25;
     if (dur > 0) el._timer = setTimeout(function () { kill(el, 'out'); }, dur * 1000);
     blip(660, 0.22, 0.05);
