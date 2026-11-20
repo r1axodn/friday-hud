@@ -13,6 +13,7 @@
   var SUPABASE_KEY = 'sb_publishable_pl28DHu3fwfqU-Nw92hyPg_nLcdeJaS';
   var TABLE = 'hud_panels';
   var MAX_CARDS = 6;
+  var MIN_W = 180, MIN_H = 130;          /* 창을 줄일 수 있는 최소 크기 */
 
   /* 단대부고 2026 2학기 2학년 기말고사: 12/8(화) 1교시 미적분Ⅰ ~ 12/14(월) 기하 */
   var EXAM_START = '2026-12-08';
@@ -345,8 +346,8 @@
     for (var i = 0; i < cards.length; i++) {
       var el = cards[i];
       if (el._moved && !force) {
-        var r = el.getBoundingClientRect();
-        applyRect(el, fitRect({ x: r.left, y: r.top, w: r.width, h: r.height }, A));
+        /* 사용자가 옮기거나 키운 창은 그대로 (transform 영향 없는 offset 기준) */
+        applyRect(el, fitRect({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }, A));
         continue;
       }
       var s = slots[si] || slots[slots.length - 1];
@@ -371,8 +372,27 @@
   }
 
   /* --------------------------------------------------------------- 창 조작 */
+  var activeEl = null;
+
+  /* 클릭한 창을 맨 앞으로 (z-index 최상위) + 활성 표시 */
   function raise(el) {
     el.style.zIndex = String(++zTop);
+    if (activeEl === el) return;
+    if (activeEl) activeEl.classList.remove('active');
+    activeEl = el;
+    el.classList.add('active');
+  }
+
+  function topMostCard(exclude) {
+    var best = null, bz = -1;
+    var cards = stageEl.querySelectorAll('.card:not(.out)');
+    for (var i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      if (c === exclude) continue;
+      var z = +c.style.zIndex || 0;
+      if (z > bz) { bz = z; best = c; }
+    }
+    return best;
   }
 
   function startDrag(e, el) {
@@ -383,9 +403,8 @@
     raise(el);
     el._moved = true;
 
-    var stageRect = stageEl.getBoundingClientRect();
-    var r = el.getBoundingClientRect();
-    var ox = r.left - stageRect.left, oy = r.top - stageRect.top;
+    /* 패럴랙스 transform 에 흔들리지 않도록 실제 좌표(offset)를 기준으로 */
+    var ox = el.offsetLeft, oy = el.offsetTop;
     var sx = e.clientX, sy = e.clientY;
     var w = el.offsetWidth, h = el.offsetHeight;
     var A = area();
@@ -414,6 +433,83 @@
     bar.addEventListener('lostpointercapture', up);
   }
 
+  /* ---- 창 크기 조절: 우하단 손잡이를 끌어 자유롭게 ---- */
+  function startResize(e, el) {
+    if (e.button != null && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    raise(el);
+
+    var A = area();
+    var ox = el.offsetLeft, oy = el.offsetTop;
+    var w0 = el.offsetWidth, h0 = el.offsetHeight;
+    var sx = e.clientX, sy = e.clientY;
+
+    /* 최대: 지금 위치에서 스테이지 끝까지 (화면 밖으로 나가지 않게) */
+    var maxW = Math.max(120, A.x1 - ox);
+    var maxH = Math.max(120, A.y1 - oy);
+    var minW = Math.min(MIN_W, maxW), minH = Math.min(MIN_H, maxH);
+
+    el._moved = true;
+    if (el._maximized) { el._maximized = false; updateSizeBtn(el); }
+
+    var handle = e.currentTarget;
+    el.classList.add('resizing');
+    document.body.classList.add('is-resizing');
+    el.style.setProperty('--px', '0px');
+    el.style.setProperty('--py', '0px');
+    el.style.left = Math.round(ox) + 'px';
+    el.style.top = Math.round(oy) + 'px';
+    if (handle.setPointerCapture) { try { handle.setPointerCapture(e.pointerId); } catch (err) {} }
+
+    function move(ev) {
+      var nw = clamp(w0 + (ev.clientX - sx), minW, maxW);
+      var nh = clamp(h0 + (ev.clientY - sy), minH, maxH);
+      el.style.width = Math.round(nw) + 'px';
+      el.style.height = Math.round(nh) + 'px';
+    }
+    function up() {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+      handle.removeEventListener('lostpointercapture', up);
+      el.classList.remove('resizing');
+      document.body.classList.remove('is-resizing');
+    }
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+    handle.addEventListener('lostpointercapture', up);
+  }
+
+  /* ---- 헤더 ⤢ 버튼: 한 번에 크게 / 원래 크기 ---- */
+  function updateSizeBtn(el) {
+    var b = el.querySelector('.act-size');
+    if (!b) return;
+    var on = !!el._maximized;
+    b.textContent = on ? '⤡' : '⤢';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.title = on ? '원래 크기로 되돌리기' : '창을 화면 가득 크게';
+    b.setAttribute('aria-label', on ? '원래 크기로 되돌리기' : '창을 화면 가득 크게');
+  }
+
+  function toggleSize(el) {
+    var A = area();
+    if (el._maximized && el._restore) {
+      applyRect(el, fitRect(el._restore, A));
+      el._maximized = false;
+    } else {
+      el._restore = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+      applyRect(el, { x: A.x0, y: A.y0, w: A.w, h: A.h });
+      el._maximized = true;
+    }
+    el._moved = true;                       /* 다음 자동 배치가 건드리지 않게 */
+    el.style.setProperty('--px', '0px');
+    el.style.setProperty('--py', '0px');
+    raise(el);
+    updateSizeBtn(el);
+  }
+
   /* 시차(parallax): 마우스가 움직이면 창이 살짝 따라 흐른다 */
   var mouseX = 0, mouseY = 0, paraRAF = 0;
   function parallaxMove(e) {
@@ -427,7 +523,7 @@
       var cards = stageEl.querySelectorAll('.card');
       for (var i = 0; i < cards.length; i++) {
         var el = cards[i];
-        if (el.classList.contains('dragging')) continue;
+        if (el.classList.contains('dragging') || el.classList.contains('resizing')) continue;
         var d = el.dataset.depth || '0.6';
         el.style.setProperty('--px', (-dx * 9 * d).toFixed(1) + 'px');
         el.style.setProperty('--py', (-dy * 7 * d).toFixed(1) + 'px');
@@ -553,7 +649,8 @@
       '<span class="tag">' + tagLabel(type) + '</span>' + src +
       '<span class="card-time">' + clockLabel(panel.created_at) + '</span>' +
       '<div class="card-actions">' +
-        '<button class="icon-btn act-expand" type="button" title="전체화면으로 보기" aria-label="전체화면으로 보기">⤢</button>' +
+        '<button class="icon-btn act-size" type="button" title="창을 화면 가득 크게" aria-label="창을 화면 가득 크게" aria-pressed="false">⤢</button>' +
+        '<button class="icon-btn act-expand" type="button" title="카드 전체화면으로 보기" aria-label="카드 전체화면으로 보기">▣</button>' +
         '<button class="icon-btn act-pin" type="button" title="고정 (자동으로 사라지지 않게)" aria-label="고정" aria-pressed="false">◈</button>' +
         '<button class="icon-btn act-close" type="button" title="닫기" aria-label="닫기">✕</button>' +
       '</div></div>';
@@ -598,12 +695,25 @@
     }
     foot += '<span class="card-id">p ' + pad(seq) + '</span></div>';
 
-    el.innerHTML = bar + '<div class="card-scroll">' + html + '</div>' + foot;
+    el.innerHTML = bar + '<div class="card-scroll">' + html + '</div>' + foot +
+      '<div class="card-resize" title="끌어서 창 크기 조절" aria-label="창 크기 조절"></div>';
 
     /* 동작 */
     var barEl = el.querySelector('.card-bar');
-    el.addEventListener('pointerdown', function () { raise(el); });
-    if (!opts.flat) barEl.addEventListener('pointerdown', function (e) { startDrag(e, el); });
+    var sizeBtn = el.querySelector('.act-size');
+    var handle = el.querySelector('.card-resize');
+    if (opts.flat) {
+      /* 전체화면 보기용 사본에서는 창 조작을 두지 않는다 */
+      if (handle) handle.remove();
+      if (sizeBtn) sizeBtn.remove();
+      barEl.style.cursor = 'default';
+      barEl.style.touchAction = 'auto';
+    } else {
+      el.addEventListener('pointerdown', function () { raise(el); });
+      barEl.addEventListener('pointerdown', function (e) { startDrag(e, el); });
+      if (handle) handle.addEventListener('pointerdown', function (e) { startResize(e, el); });
+      if (sizeBtn) sizeBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleSize(el); });
+    }
 
     el.querySelector('.act-close').addEventListener('click', function () { dismiss(el); });
     el.querySelector('.act-expand').addEventListener('click', function () { openFocus(panel); });
@@ -650,6 +760,11 @@
     if (!el || el.classList.contains('out')) return;
     clearTimeout(el._timer);
     el.classList.add('out');
+    if (activeEl === el) {
+      activeEl = null;
+      var next = topMostCard(el);
+      if (next) raise(next);
+    }
     setTimeout(function () {
       if (el.parentNode) el.parentNode.removeChild(el);
       layout();
@@ -774,7 +889,7 @@
       '<button class="focus-close" type="button" aria-label="닫기">✕</button>';
     var inner = focusEl.querySelector('.focus-inner');
     var card = buildCard(panel, { flat: true });
-    card.classList.add('pinned');
+    card.classList.add('pinned', 'active');
     var bar = card.querySelector('.card-bar');
     if (bar) { bar.style.cursor = 'default'; bar.style.touchAction = 'auto'; }
     var pg = card.querySelector('.card-progress'); if (pg) pg.remove();
