@@ -366,6 +366,7 @@
       if (pb) { pb.classList.add('pinned'); pb.setAttribute('aria-pressed', 'true'); }
     }
     feedEl.insertBefore(el, feedEl.firstChild);
+    feedEl.scrollTop = 0;                    /* 새 카드가 항상 보이도록 */
     scheduleDismiss(el, panel);
     capCards();
     ping();
@@ -385,6 +386,7 @@
       '<button class="icon-btn act-close" type="button" aria-label="닫기">✕</button>';
     el.querySelector('.act-close').addEventListener('click', function () { kill(el, 'out'); });
     bannersEl.appendChild(el);
+    syncBannerOffset();
     var dur = panel.duration != null ? Number(panel.duration) : 25;
     if (dur > 0) el._timer = setTimeout(function () { kill(el, 'out'); }, dur * 1000);
     blip(660, 0.22, 0.05);
@@ -393,7 +395,17 @@
   function kill(el, cls) {
     clearTimeout(el._timer);
     el.classList.add(cls || 'out');
-    setTimeout(function () { if (el.parentNode) el.remove(); }, 300);
+    setTimeout(function () { el.remove(); syncBannerOffset(); }, 300);
+    syncBannerOffset();
+  }
+  /* 배너가 떠 있는 동안 카드 영역이 가려지지 않게 위쪽 여백 확보 */
+  function syncBannerOffset() {
+    var h = 0, kids = bannersEl.children;
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].classList.contains('out')) continue;
+      h += (kids[i].offsetHeight || 0) + 6;
+    }
+    document.documentElement.style.setProperty('--banner-h', h + 'px');
   }
 
   /* --------------------------------------------------------------- 히스토리 */

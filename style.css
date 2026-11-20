@@ -269,7 +269,8 @@ body{
   position:relative;
   display:flex; flex-direction:column; gap:9px;
   min-height:0; overflow-y:auto; overflow-x:hidden;
-  padding:2px 3px 2px 2px;
+  padding: calc(var(--banner-h, 0px) + 2px) 3px 2px 2px;
+  transition: padding-top .22s ease;
   -webkit-overflow-scrolling:touch;
   scrollbar-width:thin; scrollbar-color:rgba(56,245,255,.3) transparent;
 }
