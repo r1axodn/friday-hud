@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 <script>
   window.__errs = [];
   addEventListener("error", function (e) { window.__errs.push(String((e && e.message) || e)); });
@@ -62,6 +62,7 @@
       <button class="btn" id="btnDemo" type="button">DEMO POPUP</button>
       <button class="btn ghost" id="btnSfx" type="button" aria-pressed="false" title="알림음 켜기/끄기">SFX</button>
       <button class="btn ghost" id="btnFull" type="button" title="전체화면 (아이패드: 화면 꽉 채우기)">FULL</button>
+      <button class="btn ghost" id="btnLock" type="button" title="잠그기">LOCK</button>
     </div>
   </header>
 
@@ -143,6 +144,34 @@
 
 </div>
 
+<!-- 잠금 화면 -->
+<div class="lock" id="lock">
+  <div class="lock-bg" aria-hidden="true"></div>
+  <div class="lock-core" id="lockCore">
+    <div class="lock-time" id="lockTime">--:--</div>
+    <div class="lock-date" id="lockDate">—</div>
+    <div class="lock-hint" id="lockHint">길게 눌러 잠금 해제</div>
+  </div>
+  <div class="lock-pad" id="lockPad" hidden>
+    <div class="lock-pad-title">ENTER PASSCODE</div>
+    <div class="lock-dots" id="lockDots"><i></i><i></i><i></i><i></i></div>
+    <div class="lock-keys">
+      <button type="button" data-k="1">1</button>
+      <button type="button" data-k="2">2</button>
+      <button type="button" data-k="3">3</button>
+      <button type="button" data-k="4">4</button>
+      <button type="button" data-k="5">5</button>
+      <button type="button" data-k="6">6</button>
+      <button type="button" data-k="7">7</button>
+      <button type="button" data-k="8">8</button>
+      <button type="button" data-k="9">9</button>
+      <button type="button" data-k="back" class="fn">⌫</button>
+      <button type="button" data-k="0">0</button>
+      <button type="button" data-k="cancel" class="fn">취소</button>
+    </div>
+  </div>
+</div>
+
 <!-- 긴급 알림 배너 자리 -->
 <div class="banners" id="banners" aria-live="assertive"></div>
 
@@ -151,6 +180,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"
         onerror="window.__sbLoadFail=true"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

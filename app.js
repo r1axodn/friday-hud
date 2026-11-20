@@ -11,7 +11,7 @@
   var SUPABASE_URL = 'https://vipaohlgodyrbjnsewuo.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_pl28DHu3fwfqU-Nw92hyPg_nLcdeJaS';
   var TABLE = 'hud_panels';
-  var MAX_CARDS = 4;
+  var MAX_CARDS = 6;
 
   /* 단대부고 2026 2학기 2학년 기말고사: 12/8(화) 1교시 미적분Ⅰ ~ 12/14(월) 기하 */
   var EXAM_START = '2026-12-08';
@@ -78,6 +78,10 @@
     sfx: false
   };
 
+  /* 잠금 상태 (카드 수신은 버퍼링해 두었다가 해제 시 한번에 렌더) */
+  var locked = true;
+  var pending = [];
+
   /* ---------------------------------------------------------------- view */
   var feedEl = $('feed');
   var bannersEl = $('banners');
@@ -94,6 +98,9 @@
     $('date').textContent = now.getFullYear() + '.' + pad(now.getMonth() + 1) + '.' + pad(now.getDate()) +
       ' (' + WEEK[now.getDay()] + ')';
     var key = dateKey(now);
+    $('lockTime').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    $('lockDate').textContent = now.getFullYear() + '.' + pad(now.getMonth() + 1) + '.' + pad(now.getDate()) +
+      ' (' + WEEK[now.getDay()] + ')';
     var e = dday(EXAM_START, key);
     $('dExam').textContent = e.text;
     $('dExam').className = 'stat-v ' + e.tone;
@@ -327,7 +334,6 @@
         if (pg) pg.remove();
       } else {
         state.pinned.delete(el.dataset.id);
-        scheduleDismiss(el, panel);
       }
     });
 
@@ -387,7 +393,6 @@
     }
     feedEl.insertBefore(el, feedEl.firstChild);
     keepTop();                               /* 새 카드가 항상 보이도록 */
-    scheduleDismiss(el, panel);
     capCards();
     setTimeout(keepTop, 350);
     setTimeout(keepTop, 1200);
@@ -509,6 +514,7 @@
     }
 
     addHistory(panel);
+    if (locked) { pending.push(panel); if (pending.length > MAX_CARDS) pending.shift(); return; }
     if (panel.type === 'alert') showBanner(panel); else pushCard(panel);
   }
 
@@ -599,18 +605,19 @@
           }
           return;
         }
-        var rows = (res.data || []).slice().reverse();   /* 오래된 것부터 */
+        var rows = (res.data || []).slice();           /* 최신순 */
+        var pick = [];
         for (var i = 0; i < rows.length; i++) {
-          if (i === rows.length - 1) {
-            /* 가장 최근 1건만 카드로 (지난 6시간 이내) */
-            var age = (Date.now() - new Date(rows[i].created_at).getTime()) / 1000;
-            if (age >= 0 && age < 6 * 3600) receive(rows[i], 'load');
-            else { state.seen.add(rows[i].id); addHistory(rows[i]); }
+          var age = (Date.now() - new Date(rows[i].created_at).getTime()) / 1000;
+          if (pick.length < MAX_CARDS && age >= 0 && age < 24 * 3600) {
+            pick.push(rows[i]);
           } else {
             state.seen.add(rows[i].id);
             addHistory(rows[i]);
           }
         }
+        /* 오래된 것부터 넣으면 최신이 맨 위에 온다 */
+        for (var j = pick.length - 1; j >= 0; j--) receive(pick[j], 'load');
         renderHistory();
         subscribe();
       }, function () { setNet('off', 'OFFLINE'); subscribe(); });
@@ -683,6 +690,15 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (locked) {
+      var kd = e.key;
+      if (!padEl.hidden) {
+        if (/^[0-9]$/.test(kd)) onPadKey(kd);
+        else if (kd === 'Backspace') onPadKey('back');
+        else if (kd === 'Escape') hidePad();
+      } else if (kd === 'Enter' || kd === ' ') { showPad(); e.preventDefault(); }
+      return;
+    }
     var k = e.key.toLowerCase();
     if (k === 'd') { demoPopup(); }
     else if (k === 'f') { toggleFullscreen(); }
@@ -694,6 +710,88 @@
       }
     }
   });
+
+  /* ------------------------------------------------------------- 잠금 화면 */
+  var PASS_KEY = 'fridayhud.pass';
+  var DEFAULT_PASS = '0409';
+  function getPass() {
+    try { return localStorage.getItem(PASS_KEY) || DEFAULT_PASS; } catch (e) { return DEFAULT_PASS; }
+  }
+  var lockEl = $('lock'), padEl = $('lockPad'), dotsEl = $('lockDots'), lockCore = $('lockCore');
+  var passBuf = '', pressTimer = null;
+
+  function updateDots() {
+    var dots = dotsEl.querySelectorAll('i');
+    for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('on', i < passBuf.length);
+  }
+  function showPad() {
+    if (!locked) return;
+    lockCore.hidden = true;
+    padEl.hidden = false;
+    passBuf = ''; updateDots(); dotsEl.classList.remove('bad');
+  }
+  function hidePad() {
+    padEl.hidden = true; lockCore.hidden = false;
+    passBuf = ''; updateDots(); dotsEl.classList.remove('bad');
+  }
+  function flushPending() {
+    var list = pending.slice();
+    pending.length = 0;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].type === 'alert') showBanner(list[i]); else pushCard(list[i]);
+    }
+  }
+  function unlock() {
+    if (!locked) return;
+    locked = false;
+    lockEl.classList.add('out');
+    setTimeout(function () { lockEl.hidden = true; lockEl.classList.remove('out'); }, 420);
+    setTimeout(fitClock, 460);
+    flushPending();
+  }
+  function lockNow() {
+    if (locked) return;
+    locked = true;
+    lockEl.hidden = false;
+    lockEl.classList.remove('out');
+    hidePad();
+  }
+  function checkPass() {
+    if (passBuf === getPass()) {
+      blip(1320, 0.18, 0.05);
+      setTimeout(function () { blip(1760, 0.2, 0.04); }, 100);
+      unlock();
+    } else {
+      dotsEl.classList.add('bad');
+      padEl.classList.add('shake');
+      setTimeout(function () { padEl.classList.remove('shake'); }, 340);
+      setTimeout(function () { passBuf = ''; updateDots(); dotsEl.classList.remove('bad'); }, 520);
+    }
+  }
+  function onPadKey(k) {
+    if (k === 'cancel') { hidePad(); return; }
+    if (k === 'back') { passBuf = passBuf.slice(0, -1); updateDots(); return; }
+    if (passBuf.length >= 4) return;
+    passBuf += k;
+    updateDots();
+    blip(1100, 0.06, 0.03);
+    if (passBuf.length === 4) setTimeout(checkPass, 140);
+  }
+  if (lockEl) {
+    lockCore.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    lockCore.addEventListener('pointerdown', function () {
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(showPad, 480);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+      lockCore.addEventListener(ev, function () { clearTimeout(pressTimer); });
+    });
+    dotsEl.parentNode.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button[data-k]') : null;
+      if (b) onPadKey(b.getAttribute('data-k'));
+    });
+    padEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  }
 
   /* ------------------------------------------------------------- 시작 */
   function boot() {
@@ -709,6 +807,10 @@
 
     var params = new URLSearchParams(location.search);
     var demoParam = params.get('demo');
+
+    if (params.get('lock') === '0') { locked = false; lockEl.hidden = true; }
+
+    $('btnLock').addEventListener('click', lockNow);
 
     if (initSupabase()) {
       setNet('init');
