@@ -260,9 +260,9 @@
       if (vid) {
         html += '<div class="card-media"><div class="yt">' +
           '<iframe src="https://www.youtube-nocookie.com/embed/' + vid +
-          '?autoplay=1&mute=1&playsinline=1&rel=0" title="' + esc(panel.title || 'YouTube') +
+          '?playsinline=1&rel=0" title="' + esc(panel.title || 'YouTube') +
           '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"' +
-          ' allowfullscreen referrerpolicy="no-referrer"></iframe></div></div>';
+          ' allowfullscreen tabindex="-1" loading="lazy" referrerpolicy="no-referrer"></iframe></div></div>';
       } else if (panel.url) {
         html += '<p class="caption">유튜브 주소를 해석하지 못했어요. 링크로 열어 주세요.</p>';
       }
@@ -515,7 +515,7 @@
     {
       type: 'youtube',
       title: '임베드 플레이어 동작 확인용 데모 영상',
-      body: '유튜브 카드는 `videoId` 또는 url 만 넣으면 바로 재생됩니다. (음소거 자동재생 · 탭하면 소리 켜짐)',
+      body: '유튜브 카드는 `videoId` 또는 url 만 넣으면 바로 재생됩니다. (카드를 누르면 플레이어가 켜집니다)',
       url: 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
       source: 'YouTube',
       duration: 30
