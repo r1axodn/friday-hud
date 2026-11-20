@@ -22,6 +22,10 @@
 
   var TYPE_LABEL = { news: 'NEWS', youtube: 'VIDEO', image: 'IMAGE', briefing: 'BRIEFING', alert: 'ALERT' };
 
+  /* 코어 상태 행: hud_panels 스키마를 그대로 쓰기 위한 표식 (type=alert, source=__CORE_STATE__) */
+  var CORE_SRC = '__CORE_STATE__';
+  var CORE_TTL = 180000;                 /* 작업 중 갱신이 3분 없으면 idle 로 복귀 */
+
   /* ------------------------------------------------------------- helpers */
   var $ = function (id) { return document.getElementById(id); };
 
@@ -560,6 +564,57 @@
     $('teleState').textContent = tele[kind] || 'SYSTEM READY';
   }
 
+  /* ==================================================================
+     가운데 코어 상태 — 피클이 뒤에서 "작업 중"일 때의 반응
+     · 푸시: p_source=__CORE_STATE__ 인 alert 행 (p_title=working|idle, p_body=문구)
+     · 창·상단 배너·히스토리에는 쌓지 않고 코어만 바꾼다
+     · 3분 넘게 갱신이 없으면 안전장치로 스스로 idle
+     ================================================================== */
+  var core = { state: 'idle', msg: '', at: 0, timer: null };
+
+  function coreWatch() {
+    clearTimeout(core.timer);
+    core.timer = null;
+    if (core.state !== 'working') return;
+    var left = CORE_TTL - (Date.now() - core.at);
+    if (left <= 0) { setCoreState('idle'); return; }   /* 오래된 working → idle */
+    core.timer = setTimeout(coreWatch, Math.min(left, CORE_TTL) + 400);
+  }
+
+  function renderCore() {
+    var on = core.state === 'working';
+    document.body.classList.toggle('is-working', on);
+    var msg = $('coreStatusMsg');
+    if (msg) msg.textContent = core.msg || '작업 중';
+    var pill = $('corePill');
+    if (pill) pill.hidden = !on;
+    var btn = $('btnCore');
+    if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+
+  function setCoreState(next, msg, atMs) {
+    var s = next === 'working' ? 'working' : 'idle';
+    var t = (typeof atMs === 'number' && !isNaN(atMs)) ? atMs : Date.now();
+    if (t > Date.now() + 5000) t = Date.now();         /* 기기 시계 오차 보정 */
+    core.state = s;
+    core.msg = s === 'working' ? String(msg == null ? '' : msg).trim() : '';
+    core.at = t;
+    renderCore();
+    coreWatch();
+  }
+
+  function isCoreState(panel) {
+    return String((panel && panel.source) || '') === CORE_SRC;
+  }
+
+  function applyCore(panel) {
+    var s = String(panel.title == null ? '' : panel.title).trim().toLowerCase();
+    if (s !== 'working' && s !== 'idle') return false;
+    var t = panel.created_at ? new Date(panel.created_at).getTime() : NaN;
+    setCoreState(s, panel.body, isNaN(t) ? Date.now() : t);
+    return true;
+  }
+
   /* ---- 토스트 ---- */
   var toastTimer = null;
   function toast(msg) {
@@ -908,6 +963,9 @@
     if (state.seen.has(id)) return;
     state.seen.add(id);
 
+    /* 코어 상태 행은 창도 배너도 히스토리도 아님 — 가운데 코어만 전환 */
+    if (isCoreState(panel)) { applyCore(panel); return; }
+
     state.rx++;
     $('rxCount').textContent = String(state.rx);
 
@@ -1022,6 +1080,7 @@
         var rows = (res.data || []).slice();           /* 최신순 */
         var pick = [];
         for (var i = 0; i < rows.length; i++) {
+          if (isCoreState(rows[i])) { state.seen.add(rows[i].id); continue; }  /* 코어 상태 행은 창이 아니다 */
           var age = (Date.now() - new Date(rows[i].created_at).getTime()) / 1000;
           if (pick.length < MAX_CARDS && age >= 0 && age < 24 * 3600) {
             pick.push(rows[i]);
@@ -1033,8 +1092,22 @@
         /* 오래된 것부터 넣으면 최신이 가장 좋은 자리를 받는다 */
         for (var j = pick.length - 1; j >= 0; j--) receive(pick[j], 'load');
         renderHistory();
+        loadCoreState();
         subscribe();
       }, function () { setNet('off', 'OFFLINE'); subscribe(); });
+  }
+
+  /* 페이지를 열었을 때: 가장 최근 __CORE_STATE__ 가 있으면 창 없이 코어 상태만 되살린다 */
+  function loadCoreState() {
+    if (!client) return;
+    client.from(TABLE).select('*').eq('source', CORE_SRC)
+      .order('created_at', { ascending: false }).limit(1)
+      .then(function (res) {
+        if (res.error || !res.data || !res.data.length) return;
+        var row = res.data[0];
+        state.seen.add(row.id);
+        applyCore(row);
+      }, function () {});
   }
 
   function subscribe() {
@@ -1077,6 +1150,16 @@
 
   /* ------------------------------------------------------------- 컨트롤 */
   $('btnDemo').addEventListener('click', function () { demoPopup(); });
+  $('btnCore').addEventListener('click', function () {
+    /* DB 를 건드리지 않는 미리보기 토글 */
+    if (core.state === 'working') {
+      setCoreState('idle');
+      toast('코어 · 평상시 상태');
+    } else {
+      setCoreState('working', '자료 찾는 중...');
+      toast('코어 · 작업 중 상태 미리보기 (3분 뒤 자동 복귀)');
+    }
+  });
   $('btnTidy').addEventListener('click', function () { tidy(); toast('창을 화면 전체에 다시 펼쳤어요'); });
   $('btnSfx').addEventListener('click', function () {
     state.sfx = !state.sfx;
@@ -1214,6 +1297,7 @@
     tickClock();
     setInterval(tickClock, 250);
 
+    renderCore();
     syncBannerOffset();
     window.addEventListener('resize', function () {
       fitClock();
@@ -1261,7 +1345,7 @@
           if (!res.error) subscribe();
         }, function () {});
       }
-      if (!document.hidden) { fitClock(); requestLayout(); }
+      if (!document.hidden) { coreWatch(); fitClock(); requestLayout(); }
     });
 
     /* PWA (https 에서만) */
@@ -1272,8 +1356,11 @@
     /* 디버그용 */
     window.__hud = {
       state: state, demo: demoPopup, receive: receive, setNet: setNet,
+      core: core, coreStatus: setCoreState, applyCore: applyCore, loadCoreState: loadCoreState,
       layout: layout, tidy: tidy, slots: function () { return computeSlots(area(), coreSafe(), stageEl.querySelectorAll('.card').length); }
     };
+    /* 테스트 훅: window.__hudCoreStatus('working', '자료 찾는 중...') / ('idle') */
+    window.__hudCoreStatus = function (s, msg) { setCoreState(s, msg); return core.state; };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

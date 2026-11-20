@@ -40,6 +40,11 @@
 
 - **화면 정중앙 코어**: 실시간 시계(초 단위) · 날짜 · 다음 일정. 회전 링·초침 진행 링이 함께 돌아가고,
   창이 몇 개 떠 있어도 코어는 항상 화면 한가운데에 고정됩니다.
+- **코어 작업 중 반응**: 피클이 뒤에서 일할 때 코어가 시안 → 골드로 바뀌며 링이 빨라지고 맥박치듯 호흡합니다.
+  코어 아래 배지에 `● WORKING · 자료 찾는 중...` 처럼 지금 하는 일이 뜨고, 상단 연결 필 옆에도 `WORKING` 필이 켜집니다.
+  이때 창·배너는 뜨지 않고 `RECENT FEED` 에도 쌓이지 않습니다. 3분 넘게 갱신이 없으면 스스로 평상시로 돌아옵니다.
+  푸시는 `sh work/friday-hud-push.sh status working "자료 찾는 중..."` / `status idle`,
+  화면에서만 확인하려면 상단 `CORE TEST` 버튼이나 콘솔 `__hudCoreStatus('working', '자료 찾는 중...')`.
 - **플로팅 홀로그램 창**: 뉴스·유튜브·이미지·브리핑 카드는 오른쪽 한 칸에 쌓이지 않고,
   화면 전체(좌·우·위·아래)에 반투명 창으로 떠 있습니다.
   - 한 개면 시계 옆 큰 창, 2개면 좌·우, 3개면 오른쪽 한 장 + 왼쪽 두 장,
@@ -51,7 +56,7 @@
   - 세로 아이패드는 시계 위·아래 띠에 2열, 폰은 시계를 가리지 않는 계단식 시트로 자동 전환
 - **상태 타일(하단)**: 기말고사 D-DAY(2026-12-08) · 수능 D-DAY(2027-11-18) · 세션 업타임 · 수신 창 수 · 지연(초)
 - **창 컨트롤**: `⤢ 크게/원래` `▣ 전체화면` `◈ 고정` `✕ 닫기`, 하단 `RECENT FEED`에서 다시 띄우기 — 창은 스스로 사라지지 않습니다(직접 닫을 때까지 유지, 6개를 넘으면 오래된 창부터 정리)
-- **상단**: `ONLINE · REALTIME` 연결 표시, `TIDY`(창 다시 펼치기), `DEMO POPUP`, `SFX`, `FULL`, `LOCK`
+- **상단**: `ONLINE · REALTIME` 연결 표시, `WORKING`(작업 중일 때), `TIDY`(창 다시 펼치기), `DEMO POPUP`, `CORE TEST`, `SFX`, `FULL`, `LOCK`
 - **긴급 알림(`alert`)**: 화면 상단 전체폭 배너 — 배너가 떠 있는 동안 창은 그 아래로 내려갑니다
 
 키보드: `D` 데모 · `F` 전체화면 · `ESC` 맨 위 창 닫기
@@ -73,6 +78,17 @@
 ---
 
 ## 3. 패널 띄우는 방법 (REST)
+
+### 코어 상태만 바꾸기 (창 없이)
+
+```bash
+sh work/friday-hud-push.sh status working "자료 찾는 중..."   # 코어 → 작업 중(골드·가속·맥박)
+sh work/friday-hud-push.sh status idle                        # 코어 → 평상시
+```
+
+`__CORE_STATE__` 행은 HUD 가 가로채서 창·배너·히스토리에 남기지 않고 코어 상태만 바꿉니다.
+작업이 길어지면 3분 안에 `working` 을 한 번 더 보내 주세요 (3분 무갱신 시 자동 `idle`).
+`hud_clear` 는 창뿐 아니라 이 상태 행까지 지우니, 정리 후에는 코어가 평상시로 돌아갑니다.
 
 ```bash
 BASE=https://vipaohlgodyrbjnsewuo.supabase.co
@@ -98,6 +114,10 @@ curl -s -X POST "$BASE/rest/v1/rpc/hud_push" \
 
 # 긴급 배너
 -d '{"p_secret":"<S>","p_type":"alert","p_title":"긴급","p_body":"내용","p_duration":20}'
+
+# 코어 상태 (가운데 링 반응) — 스키마 변경 없이 alert 행 + source 표식으로 전달
+#   내부적으로 p_type=alert, p_source=__CORE_STATE__, p_title=working|idle, p_duration=0
+-d '{"p_secret":"<S>","p_type":"alert","p_source":"__CORE_STATE__","p_title":"working","p_body":"자료 찾는 중...","p_duration":0}'
 
 # 정리
 -d '{"p_secret":"<S>"}'        # POST /rest/v1/rpc/hud_clear

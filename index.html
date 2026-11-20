@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 <script>
   window.__errs = [];
   addEventListener("error", function (e) { window.__errs.push(String((e && e.message) || e)); });
@@ -55,12 +55,18 @@
     </div>
 
     <div class="top-actions">
+      <div class="pill work" id="corePill" title="피클이 지금 뒤에서 작업 중입니다" hidden>
+        <span class="dot" aria-hidden="true"></span>
+        <span id="corePillText">WORKING</span>
+      </div>
       <div class="pill" id="netPill" title="실시간 연결 상태">
         <span class="dot" aria-hidden="true"></span>
         <span id="netText">CONNECTING</span>
       </div>
       <button class="btn" id="btnTidy" type="button" title="창을 화면 전체에 다시 펼치기">TIDY</button>
       <button class="btn" id="btnDemo" type="button">DEMO POPUP</button>
+      <button class="btn ghost" id="btnCore" type="button" aria-pressed="false"
+              title="가운데 코어의 작업 중 상태를 미리 보기 (누를 때마다 작업 중 ↔ 평상시)">CORE TEST</button>
       <button class="btn ghost" id="btnSfx" type="button" aria-pressed="false" title="알림음 켜기/끄기">SFX</button>
       <button class="btn ghost" id="btnFull" type="button" title="전체화면 (아이패드: 화면 꽉 채우기)">FULL</button>
       <button class="btn ghost" id="btnLock" type="button" title="잠그기">LOCK</button>
@@ -91,6 +97,14 @@
         <div class="date" id="date">—</div>
       </div>
       <div class="core-foot" id="coreNext">NEXT —</div>
+      <div class="core-status-wrap">
+        <div class="core-status" id="coreStatus" aria-live="polite">
+          <span class="cs-dot" aria-hidden="true"></span>
+          <b>WORKING</b>
+          <span class="cs-sep" aria-hidden="true">·</span>
+          <span class="cs-msg" id="coreStatusMsg">작업 중</span>
+        </div>
+      </div>
     </div>
     <span class="core-mark m1" aria-hidden="true"></span>
     <span class="core-mark m2" aria-hidden="true"></span>
@@ -190,6 +204,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"
         onerror="window.__sbLoadFail=true"></script>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>
