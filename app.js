@@ -367,7 +367,10 @@
 
   function tidy() {
     var cards = [].slice.call(stageEl.querySelectorAll('.card'));
-    for (var i = 0; i < cards.length; i++) { cards[i]._moved = false; }
+    for (var i = 0; i < cards.length; i++) {
+      cards[i]._moved = false;
+      if (cards[i]._maximized) { cards[i]._maximized = false; updateSizeBtn(cards[i]); }
+    }
     layout(true);
   }
 
