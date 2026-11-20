@@ -262,56 +262,65 @@
     var g = 14;
     var belowTop = C.y1 + g, belowH = A.y1 - belowTop;
     var aboveBot = C.y0 - g, aboveH = aboveBot - A.y0;
-    var cols = A.w >= 480 ? 2 : 1;
-    var w = (A.w - g * (cols - 1)) / cols;
-    var slots = [];
+    var zones = [];
+    if (belowH > 120) zones.push({ y: belowTop, h: belowH });
+    if (aboveH > 120) zones.push({ y: A.y0, h: aboveH });
+    if (!zones.length) return [];
 
-    function fill(zoneTop, zoneH) {
-      if (zoneH < 140 || slots.length >= n) return;
-      var rows = zoneH > 470 ? 2 : 1;
-      var h = Math.min((zoneH - g * (rows - 1)) / rows, 470);
-      if (h < 130) return;
+    var cols = A.w >= 460 ? 2 : 1;
+    var rows = Math.max(1, Math.ceil(n / (zones.length * cols)));
+    var minH = 130;
+    while (rows > 1 && zones.every(function (z) { return (z.h - g * (rows - 1)) / rows < minH; })) rows--;
+
+    var slots = [];
+    var w = (A.w - g * (cols - 1)) / cols;
+    for (var zi = 0; zi < zones.length && slots.length < n; zi++) {
+      var z = zones[zi];
+      var h = (z.h - g * (rows - 1)) / rows;
       for (var r = 0; r < rows && slots.length < n; r++) {
         for (var c = 0; c < cols && slots.length < n; c++) {
-          slots.push({ x: A.x0 + c * (w + g), y: zoneTop + r * (h + g), w: w, h: h });
+          slots.push({ x: A.x0 + c * (w + g), y: z.y + r * (h + g), w: w, h: h });
         }
       }
     }
-    fill(belowTop, belowH);
-    fill(A.y0, aboveH);
-    return slots.map(function (r) { return fitRect(r, A); });
+    return slots.map(function (rr) { return fitRect(rr, A); });
   }
 
-  /* 폰: 화면 폭을 꽉 쓰는 계단식 창 */
-  function compactSlots(A, n) {
+  /* 폰: 화면 폭을 꽉 쓰는 계단식 창 (최신 창이 아래, 제목줄은 위로 계단처럼) */
+  function compactSlots(A, C, n) {
     var g = 8;
     var cols = A.w >= 620 ? 2 : 1;
     var w = (A.w - g * (cols - 1)) / cols;
-    var h = Math.min(A.h, Math.max(190, Math.min(A.h * 0.52, 380)));
     var out = [];
+
+    if (cols === 1 && n === 1) {
+      /* 한 장이면 시계 아래에 붙여 시계를 가리지 않는다 */
+      var y0 = clamp(C.y1 + 10, A.y0, Math.max(A.y0, A.y1 - 150));
+      return [fitRect({ x: A.x0, y: y0, w: A.w, h: A.y1 - y0 }, A)];
+    }
+
+    var h = Math.max(150, Math.min(A.h * (cols === 1 ? 0.5 : 0.62), cols === 1 ? 320 : 250));
+    var step = cols === 1 ? 46 : 30;
+    var maxStack = Math.max(0, A.h - h);
+
     for (var i = 0; i < n; i++) {
       var row = Math.floor(i / cols);
       var col = i % cols;
-      var dx = Math.min(i * 4, 16);
-      var dy = Math.min(row * 44, Math.max(0, A.h - h));
+      var dy = (cols === 1) ? Math.min((n - 1 - i) * step, maxStack)
+                            : Math.min(row * step, maxStack);
+      var dx = Math.min(i * 3, 12);
       out.push({ x: A.x0 + col * (w + g) + dx, y: A.y0 + dy, w: w - dx, h: h });
     }
     return out.map(function (r) { return fitRect(r, A); });
   }
 
   function computeSlots(A, C, n) {
-    if (isCompact()) return compactSlots(A, n);
-    var sideRoom = Math.min((C.x0 - A.x0), (A.x1 - C.x1));
+    if (isCompact()) return compactSlots(A, C, n);
+    var sideRoom = Math.min(C.x0 - A.x0, A.x1 - C.x1);
     if (sideRoom >= 250 && A.h >= 300) return sideSlots(A, C, n);
     var bands = bandSlots(A, C, n);
     if (bands.length >= n) return bands;
-    if (bands.length) {
-      var rest = compactSlots(A, n - bands.length);
-      return bands.concat(rest.map(function (r, i) {
-        return { x: r.x, y: r.y + i * 6, w: r.w, h: r.h };
-      }));
-    }
-    return compactSlots(A, n);
+    return compactSlots(A, C, n);
   }
 
   function applyRect(el, r) {
