@@ -4,7 +4,7 @@
 **시계 · D-DAY · 연결 상태**가 상시 떠 있고, Supabase Realtime 으로 새 패널이 들어오면
 **0.2초 안에 카드가 팝업**됩니다.
 
-- 화면: <https://r1axodn.github.io/friday-hud/>
+- 화면: <https://r1axodn.github.io/friday-hud/> (GitHub Pages · `gh-pages` 브랜치)
 - 데모: <https://r1axodn.github.io/friday-hud/?demo=1> (SQL 없이 연출만 확인)
 - 저장소: <https://github.com/r1axodn/friday-hud>
 
@@ -112,6 +112,30 @@ curl -s -X POST "$BASE/rest/v1/rpc/hud_push" \
 4. 화면을 오래 켜 두면 번인 방지를 위해 밝기를 60% 정도로
 
 ---
+
+## 6. 배포 구조
+
+이 저장소는 **main(작업) → gh-pages(배포)** 두 브랜치를 씁니다.
+GitHub Pages 가 `gh-pages` 브랜치 루트를 바라보고 있어서,
+main 을 고친 뒤 아래 한 줄만 실행하면 사이트가 갱신됩니다.
+
+```bash
+git push origin main                # 작업 기록
+git push origin main:gh-pages       # 배포
+```
+
+- 파일을 고치면 `index.html` 의 `style.css?v=` / `app.js?v=` 숫자를 올려 주세요(캐시).
+- 배포 후 반영까지 30~60초 걸립니다.
+
+## 7. 안 되는 것 같을 때
+
+| 증상 | 확인 |
+| --- | --- |
+| 카드가 안 뜸 | Supabase SQL 을 실행했는지, 상단 필이 `ONLINE · REALTIME` 인지 |
+| `DB SETUP NEEDED` | SQL 미실행. SQL Editor 에서 실행 |
+| `RECONNECTING` | 잠시 후 자동 재연결. 8초 폴링으로도 카드는 뜸 |
+| 화면 연출만 보고 싶다 | `?demo=1` 붙이거나 `DEMO POPUP` 버튼 |
+| 유튜브 카드가 검게 나옴 | 영상 소유자가 임베드를 막은 경우. `YouTube ↗` 링크로 열기 |
 
 ## 파일
 

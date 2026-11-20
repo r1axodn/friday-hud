@@ -122,7 +122,7 @@
     var st = document.querySelector('.stats');
     if (st) {
       var top = st.getBoundingClientRect().top;
-      var clear = Math.round(window.innerHeight - top + 8);
+      var clear = Math.round(window.innerHeight - top + 16);
       if (clear > 40 && clear < window.innerHeight * 0.6) {
         document.documentElement.style.setProperty('--sheet-bottom', clear + 'px');
       }
