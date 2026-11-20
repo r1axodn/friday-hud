@@ -548,7 +548,7 @@
     el.dataset.depth = (0.35 + ((seq * 37) % 60) / 100).toFixed(2);   /* 창마다 다른 깊이 */
 
     var src = panel.source ? '<span class="card-src">' + esc(panel.source) + '</span>' : '';
-    var bar = '<div class="card-bar">' +
+    var bar = '<div class="card-bar" role="group" aria-label="창 이동">' +
       '<span class="grip" aria-hidden="true"></span>' +
       '<span class="tag">' + tagLabel(type) + '</span>' + src +
       '<span class="card-time">' + clockLabel(panel.created_at) + '</span>' +
@@ -657,14 +657,15 @@
   }
 
   function capCards() {
-    var cards = [].slice.call(stageEl.querySelectorAll('.card:not(.out)'));
+    /* 최신 창이 앞·위 → 오래된 것부터 정리 */
+    var cards = [].slice.call(stageEl.querySelectorAll('.card:not(.out)'))
+      .sort(function (a, b) { return (b._seq || 0) - (a._seq || 0); });
     var free = cards.filter(function (c) { return !c.classList.contains('pinned'); });
     if (free.length > MAX_CARDS) {
       for (var i = MAX_CARDS; i < free.length; i++) dismiss(free[i]);
     }
-    var all = [].slice.call(stageEl.querySelectorAll('.card:not(.out)'));
-    if (all.length > MAX_CARDS + 2) {
-      for (var j = MAX_CARDS + 2; j < all.length; j++) dismiss(all[j]);
+    if (cards.length > MAX_CARDS + 2) {
+      for (var j = MAX_CARDS + 2; j < cards.length; j++) dismiss(cards[j]);
     }
   }
 
