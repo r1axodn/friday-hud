@@ -543,7 +543,7 @@ kbd{
   .feed{
     grid-area:auto;                 /* 세로 모드에서는 하단 고정 시트 (D-DAY 줄 위에 띄움) */
     position:fixed; left:0; right:0; z-index:50;
-    bottom: calc(92px + env(safe-area-inset-bottom));
+    bottom: var(--sheet-bottom, calc(92px + env(safe-area-inset-bottom)));
     max-height:42dvh;
     padding: 14px calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
              calc(12px + env(safe-area-inset-left));

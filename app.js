@@ -117,6 +117,16 @@
     var base = Math.min(h, w);
     var size = Math.max(24, Math.min(base * 0.128, 108));
     document.documentElement.style.setProperty('--clk', size.toFixed(1) + 'px');
+
+    /* 세로 모드: 팝업 시트가 D-DAY 줄을 가리지 않도록 그 위에 띄움 */
+    var st = document.querySelector('.stats');
+    if (st) {
+      var top = st.getBoundingClientRect().top;
+      var clear = Math.round(window.innerHeight - top + 8);
+      if (clear > 40 && clear < window.innerHeight * 0.6) {
+        document.documentElement.style.setProperty('--sheet-bottom', clear + 'px');
+      }
+    }
   }
 
   /* ---- 링 눈금 ---- */
@@ -691,6 +701,7 @@
     fitClock();
     tickClock();
     setInterval(tickClock, 250);
+    setTimeout(fitClock, 400);
     syncBannerOffset();
     window.addEventListener('resize', function () { fitClock(); syncBannerOffset(); });
     window.addEventListener('orientationchange', function () { setTimeout(function () { fitClock(); syncBannerOffset(); }, 250); });
