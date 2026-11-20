@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#03070b">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FRIDAY HUD">
+<meta name="description" content="FRIDAY HUD — 실시간 시계·D-DAY·Supabase Realtime 팝업 패널을 띄우는 아이언맨 스타일 HUD 화면">
+<title>FRIDAY HUD</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="style.css?v=1">
+<script>
+  window.__errs = [];
+  addEventListener("error", function (e) { window.__errs.push(String((e && e.message) || e)); });
+  addEventListener("unhandledrejection", function (e) { window.__errs.push("rejection:" + String(e && e.reason)); });
+</script>
+</head>
+<body>
+
+<div id="hud" class="hud">
+
+  <!-- 배경 레이어 -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-sweep"></div>
+    <div class="bg-rings"></div>
+    <div class="bg-scan"></div>
+    <div class="bg-vignette"></div>
+  </div>
+
+  <!-- 상단 바 -->
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 44 44" aria-hidden="true">
+        <circle cx="22" cy="22" r="20" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.2"/>
+        <circle cx="22" cy="22" r="14" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1.2"
+                stroke-dasharray="10 6"/>
+        <circle cx="22" cy="22" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="22" cy="22" r="2.2" fill="currentColor"/>
+        <path d="M22 2v6M22 36v6M2 22h6M36 22h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+      <div class="brand-txt">
+        <h1>FRIDAY<span class="brand-sub">HUD</span></h1>
+        <p>personal heads-up display <span class="sep">//</span> <span id="connShort">link</span></p>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <div class="pill" id="netPill" title="실시간 연결 상태">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="netText">CONNECTING</span>
+      </div>
+      <button class="btn" id="btnDemo" type="button">DEMO POPUP</button>
+      <button class="btn ghost" id="btnSfx" type="button" aria-pressed="false" title="알림음 켜기/끄기">SFX</button>
+      <button class="btn ghost" id="btnFull" type="button" title="전체화면 (아이패드: 화면 꽉 채우기)">FULL</button>
+    </div>
+  </header>
+
+  <!-- 중앙 코어 -->
+  <main class="core">
+    <div class="clock-wrap">
+      <div class="rings" aria-hidden="true">
+        <svg viewBox="0 0 400 400">
+          <g id="ticks"></g>
+          <circle class="ring thin" cx="200" cy="200" r="188"></circle>
+          <circle class="ring arc a1" cx="200" cy="200" r="170"></circle>
+          <circle class="ring dash" cx="200" cy="200" r="148"></circle>
+          <circle class="ring arc a2" cx="200" cy="200" r="122"></circle>
+          <circle class="ring faint" cx="200" cy="200" r="92"></circle>
+          <circle class="ring arc a3" cx="200" cy="200" r="66"></circle>
+        </svg>
+      </div>
+      <div class="clock">
+        <div class="time" id="time" aria-label="현재 시각">
+          <span id="tH">--</span><i class="colon">:</i><span id="tM">--</span><i class="colon">:</i><span id="tS">--</span>
+        </div>
+        <div class="date" id="date">—</div>
+      </div>
+    </div>
+
+    <div class="stats" id="stats">
+      <div class="stat">
+        <span class="stat-k">기말고사</span>
+        <b class="stat-v" id="dExam">—</b>
+        <span class="stat-s" id="dExamSub">2026.12.08 08:30</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">수능</span>
+        <b class="stat-v" id="dSuneung">—</b>
+        <span class="stat-s" id="dSuneungSub">2027.11.18</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">SESSION</span>
+        <b class="stat-v mono" id="uptime">00:00:00</b>
+        <span class="stat-s">uptime</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">RX</span>
+        <b class="stat-v mono" id="rxCount">0</b>
+        <span class="stat-s">panels received</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">LATENCY</span>
+        <b class="stat-v mono" id="latency">—</b>
+        <span class="stat-s">push → screen</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- 실시간 팝업 패널 영역 -->
+  <aside class="feed" id="feed" aria-live="polite" aria-label="실시간 패널"></aside>
+
+  <!-- 최근 수신 기록 -->
+  <section class="rail">
+    <div class="rail-head">
+      <span>RECENT FEED</span>
+      <button class="mini" id="btnClear" type="button">비우기</button>
+    </div>
+    <ul class="rail-list" id="history"></ul>
+    <p class="rail-empty" id="railEmpty">아직 받은 패널이 없어요 · <b>DEMO POPUP</b> 으로 미리 볼 수 있어요</p>
+  </section>
+
+  <!-- 하단 텔레메트리 -->
+  <footer class="foot">
+    <div class="tele">
+      <span id="teleState">SYSTEM READY</span>
+      <span class="tele-sep">|</span>
+      <span id="teleSource">SUPABASE · vipaohlgodyrbjnsewuo</span>
+      <span class="tele-sep">|</span>
+      <span id="teleClock">—</span>
+    </div>
+    <div class="hint"><kbd>D</kbd> 데모 · <kbd>F</kbd> 전체화면 · <kbd>ESC</kbd> 닫기</div>
+  </footer>
+
+</div>
+
+<!-- 긴급 알림 배너 자리 -->
+<div class="banners" id="banners" aria-live="assertive"></div>
+
+<!-- 카드 전체화면 보기 -->
+<div class="focus" id="focus" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"
+        onerror="window.__sbLoadFail=true"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
