@@ -238,14 +238,21 @@
            { x: xL, y: A.y0, w: w, h: hHalf },
            { x: xL, y: A.y0 + hHalf + g, w: w, h: hHalf }];
     } else {
-      var hh = Math.max(160, hHalf * 0.82);
-      var yMid = clamp(C.cy - hh / 2, A.y0, A.y1 - hh);
-      s = [{ x: xR, y: A.y0, w: w, h: hh },
-           { x: xL, y: A.y0, w: w, h: hh },
-           { x: xR, y: A.y1 - hh, w: w, h: hh },
-           { x: xL, y: A.y1 - hh, w: w, h: hh },
-           { x: xR - 20, y: yMid, w: w, h: hh },
-           { x: xL + 20, y: yMid + 18, w: w, h: hh }];
+      /* 5~6: 두 열을 3칸으로 나눠 겹치지 않게 (5개는 왼쪽만 3칸) */
+      var rows = 3;
+      var hr = (A.h - g * (rows - 1)) / rows;
+      s = [];
+      if (n === 5) {
+        var h2 = (A.h - g) / 2;
+        s.push({ x: xR, y: A.y0, w: w, h: h2 });
+        s.push({ x: xR, y: A.y0 + h2 + g, w: w, h: h2 });
+        for (var r = 0; r < 3; r++) s.push({ x: xL, y: A.y0 + r * (hr + g), w: w, h: hr });
+      } else {
+        for (var q = 0; q < rows; q++) {
+          s.push({ x: xR, y: A.y0 + q * (hr + g), w: w, h: hr });
+          s.push({ x: xL, y: A.y0 + q * (hr + g), w: w, h: hr });
+        }
+      }
     }
     return s.map(function (r) { return fitRect(r, A); });
   }
