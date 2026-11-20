@@ -525,7 +525,7 @@ kbd{
 
 /* ================================================================= portrait
    아이패드 세로 / 폰: 팝업 패널을 하단 시트로 */
-@media (orientation: portrait), (max-width: 860px){
+@media (orientation: portrait) and (max-width: 900px), (max-width: 640px){
   .hud{
     grid-template-columns: minmax(0,1fr);
     grid-template-rows: auto minmax(0,1fr) auto auto;
@@ -541,9 +541,10 @@ kbd{
   .stat:nth-child(4), .stat:nth-child(5){ display:none; }
 
   .feed{
-    grid-area:auto;                 /* 세로 모드에서는 하단 고정 시트 */
-    position:fixed; left:0; right:0; bottom:0; z-index:50;
-    max-height:46dvh;
+    grid-area:auto;                 /* 세로 모드에서는 하단 고정 시트 (D-DAY 줄 위에 띄움) */
+    position:fixed; left:0; right:0; z-index:50;
+    bottom: calc(92px + env(safe-area-inset-bottom));
+    max-height:42dvh;
     padding: 14px calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
              calc(12px + env(safe-area-inset-left));
     background: linear-gradient(180deg, rgba(3,7,11,0) 0%, rgba(3,7,11,.82) 8%, rgba(3,7,11,.97) 26%);
