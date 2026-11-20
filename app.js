@@ -392,6 +392,7 @@
     el.querySelector('.act-close').addEventListener('click', function () { kill(el, 'out'); });
     bannersEl.appendChild(el);
     syncBannerOffset();
+    feedEl.scrollTop = 0;
     var dur = panel.duration != null ? Number(panel.duration) : 25;
     if (dur > 0) el._timer = setTimeout(function () { kill(el, 'out'); }, dur * 1000);
     blip(660, 0.22, 0.05);

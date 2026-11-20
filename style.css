@@ -269,6 +269,7 @@ body{
   position:relative;
   display:flex; flex-direction:column; gap:9px;
   min-height:0; overflow-y:auto; overflow-x:hidden;
+  overflow-anchor:none;                 /* 배너 오프셋이 스크롤 앵커링에 먹히지 않게 */
   padding: calc(var(--banner-h, 0px) + 2px) 3px 2px 2px;
   transition: padding-top .22s ease;
   -webkit-overflow-scrolling:touch;
