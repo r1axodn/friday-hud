@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 <script>
   window.__errs = [];
   addEventListener("error", function (e) { window.__errs.push(String((e && e.message) || e)); });
@@ -37,22 +37,15 @@
     <div class="lock-hint" id="lockHint">길게 눌러 잠금 해제</div>
   </div>
   <div class="lock-pad" id="lockPad" hidden>
-    <div class="lock-pad-title">ENTER PASSCODE</div>
-    <div class="lock-dots" id="lockDots"><i></i><i></i><i></i><i></i></div>
-    <div class="lock-keys">
-      <button type="button" data-k="1">1</button>
-      <button type="button" data-k="2">2</button>
-      <button type="button" data-k="3">3</button>
-      <button type="button" data-k="4">4</button>
-      <button type="button" data-k="5">5</button>
-      <button type="button" data-k="6">6</button>
-      <button type="button" data-k="7">7</button>
-      <button type="button" data-k="8">8</button>
-      <button type="button" data-k="9">9</button>
-      <button type="button" data-k="back" class="fn">⌫</button>
-      <button type="button" data-k="0">0</button>
-      <button type="button" data-k="cancel" class="fn">취소</button>
-    </div>
+    <div class="lock-pad-title">ENTER PASSWORD</div>
+    <form class="lock-form" id="lockForm" autocomplete="off">
+      <input id="lockPass" class="lock-input" type="password" autocomplete="current-password"
+             placeholder="PASSWORD" aria-label="비밀번호">
+      <div class="lock-actions">
+        <button type="button" class="lock-btn fn" id="lockCancel">취소</button>
+        <button type="submit" class="lock-btn primary" id="lockSubmit">UNLOCK</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -60,6 +53,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"
         onerror="window.__sbLoadFail=true"></script>
-<script src="app.js?v=24"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>

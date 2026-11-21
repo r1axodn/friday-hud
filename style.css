@@ -899,6 +899,26 @@ kbd{
   background:rgba(56,245,255,.22); border-color:var(--c); transform:scale(.94);
 }
 .lock-keys button.fn{ font-size:clamp(12px,2vmin,15px); color:var(--dim); border-color:rgba(56,245,255,.14); background:transparent; }
+.lock-form{ display:flex; flex-direction:column; gap:14px; width:min(78vw,300px); }
+.lock-input{
+  width:100%; padding:13px 16px; border-radius:14px; text-align:center;
+  font-family:"Orbitron",monospace; font-size:clamp(15px,2.4vmin,18px); letter-spacing:.14em;
+  color:var(--ink); background:rgba(56,245,255,.06);
+  border:1px solid rgba(56,245,255,.32); outline:none;
+  transition:border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.lock-input:focus{ border-color:rgba(56,245,255,.78); box-shadow:0 0 18px rgba(56,245,255,.18); background:rgba(56,245,255,.1); }
+.lock-input.bad{ border-color:var(--warn); box-shadow:0 0 16px rgba(255,95,95,.35); }
+.lock-actions{ display:grid; grid-template-columns:1fr 1.4fr; gap:10px; }
+.lock-btn{
+  height:44px; border-radius:12px; border:1px solid rgba(56,245,255,.28);
+  background:rgba(56,245,255,.06); color:var(--ink); cursor:pointer;
+  font-family:"Orbitron",sans-serif; font-size:13px; font-weight:700; letter-spacing:.16em;
+  transition:transform .08s ease, background .12s ease, border-color .12s ease;
+}
+.lock-btn:active{ transform:scale(.96); background:rgba(56,245,255,.2); }
+.lock-btn.fn{ color:var(--dim); border-color:rgba(56,245,255,.14); background:transparent; }
+.lock-btn.primary{ border-color:rgba(56,245,255,.55); background:rgba(56,245,255,.14); }
 @media (max-width: 560px){
   .lock-keys{ gap:10px; }
   .lock-hint{ margin-top:3em; }

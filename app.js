@@ -15,10 +15,7 @@
   var MAX_CARDS = 6;
   var MIN_W = 180, MIN_H = 130;          /* 창을 줄일 수 있는 최소 크기 */
 
-  /* 단대부고 2026 2학기 2학년 기말고사: 12/8(화) 1교시 미적분Ⅰ ~ 12/14(월) 기하 */
-  var EXAM_START = '2026-12-08';
-  var EXAM_END = '2026-12-14';
-  var SUNEUNG = '2027-11-18';
+  var ddayCfg = { d1: null, d2: null };  /* 인증 후 서버(hud_settings)에서만 로드 */
 
   var TYPE_LABEL = { news: 'NEWS', youtube: 'VIDEO', image: 'IMAGE', briefing: 'BRIEFING', alert: 'ALERT' };
 
@@ -128,20 +125,34 @@
     var sr = $('secRing');
     if (sr) sr.style.strokeDashoffset = (SEC_RING_LEN * (1 - (now.getSeconds() + now.getMilliseconds() / 1000) / 60)).toFixed(1);
 
-    var e = dday(EXAM_START, key);
-    $('dExam').textContent = e.text;
-    $('dExam').className = 'stat-v ' + e.tone;
-    var s = dday(SUNEUNG, key);
-    $('dSuneung').textContent = s.text;
-    $('dSuneung').className = 'stat-v ' + s.tone;
+    var d1 = ddayCfg.d1, d2 = ddayCfg.d2;
+    if (d1) {
+      var e = dday(d1.date, key);
+      $('dExamLabel').textContent = d1.label;
+      $('dExam').textContent = e.text;
+      $('dExam').className = 'stat-v ' + e.tone;
+      $('dExamSub').textContent = d1.sub || d1.date.replace(/-/g, '.');
+    }
+    if (d2) {
+      var s = dday(d2.date, key);
+      $('dSuneungLabel').textContent = d2.label;
+      $('dSuneung').textContent = s.text;
+      $('dSuneung').className = 'stat-v ' + s.tone;
+      $('dSuneungSub').textContent = d2.sub || d2.date.replace(/-/g, '.');
+    }
 
     /* 코어 하단: 가장 가까운 일정 */
-    var next = dayDiff(key, EXAM_START);
     var nx = $('coreNext');
     if (nx) {
-      nx.innerHTML = next > 0
-        ? 'NEXT <b>' + e.text + '</b> 기말고사 · ' + EXAM_START.replace(/-/g, '.')
-        : 'NEXT <b>' + s.text + '</b> 수능 · ' + SUNEUNG.replace(/-/g, '.');
+      if (d1 && dayDiff(key, d1.date) >= 0) {
+        var e1 = dday(d1.date, key);
+        nx.innerHTML = 'NEXT <b>' + esc(e1.text) + '</b> ' + esc(d1.label) + ' · ' + esc(d1.date.replace(/-/g, '.'));
+      } else if (d2) {
+        var e2 = dday(d2.date, key);
+        nx.innerHTML = 'NEXT <b>' + esc(e2.text) + '</b> ' + esc(d2.label) + ' · ' + esc(d2.date.replace(/-/g, '.'));
+      } else {
+        nx.textContent = 'SYSTEM ONLINE';
+      }
     }
 
     $('uptime').textContent = hhmmss(Date.now() - state.start);
@@ -1015,24 +1026,23 @@
     {
       type: 'briefing',
       title: '오늘의 브리핑',
-      body: '### 일정\n- 09:00 기상 · 아침 브리핑\n- 13:00 학원\n- 22:00 큐브 Sub-30 훈련 20분\n\n### 체크\n- **미적분Ⅰ** p.75~157 1회독\n- 물질과 에너지 보충교재 정리\n- 수면 7시간 확보',
+      body: '### 일정\n- 09:00 모닝 브리핑\n- 14:00 집중 블록\n- 20:00 리캡\n\n### 체크\n- 오늘 목표 3건 점검\n- 미확인 알림 정리',
       source: 'FRIDAY',
       duration: 0,
       pinned: true
     },
     {
       type: 'alert',
-      title: '기말고사 D-18 · 오늘 할당량 미달',
-      body: '미적분Ⅰ 진도 12p 남았습니다. 지금 20분만 채우면 오늘 목표 달성.',
+      title: '시스템 알림 · 샘플 배너',
+      body: '긴급 알림 배너가 상단에 어떻게 표시되는지 미리 보는 샘플입니다.',
       source: 'FRIDAY',
       duration: 20
     },
     {
       type: 'news',
-      title: '수능 2028학년도 개편 — 통합형 수학·선택과목 폐지',
-      body: '2028학년도 수능은 수학이 통합형으로 바뀌고 선택과목이 폐지됩니다. **기하·미적분** 진도를 어떻게 가져갈지가 관건.',
-      source: '교육부',
-      url: 'https://www.moe.go.kr/',
+      title: '실시간 HUD 카드 샘플',
+      body: '인증된 세션에서만 **Supabase Realtime**을 통해 카드가 실시간으로 표시됩니다.',
+      source: 'SYSTEM',
       duration: 45
     }
   ];
@@ -1114,11 +1124,24 @@
       }, function () {});
   }
 
+  function loadSettings() {
+    if (!client) return;
+    client.from('hud_settings').select('dday_1_label,dday_1_date,dday_1_sub,dday_2_label,dday_2_date,dday_2_sub')
+      .limit(1)
+      .then(function (res) {
+        if (res.error || !res.data || !res.data.length) return;
+        var r = res.data[0];
+        ddayCfg.d1 = { label: r.dday_1_label, date: r.dday_1_date, sub: r.dday_1_sub };
+        ddayCfg.d2 = { label: r.dday_2_label, date: r.dday_2_date, sub: r.dday_2_sub };
+        tickClock();
+      }, function () {});
+  }
+
   function subscribe() {
     if (!client) return;
     if (state.channel) { try { client.removeChannel(state.channel); } catch (e) {} state.channel = null; }
 
-    state.channel = client.channel('friday_hud_live', { config: { broadcast: { self: false } } })
+    state.channel = client.channel('friday_hud_live', { config: { private: true, broadcast: { self: false } } })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE },
         function (payload) { if (payload && payload.new) receive(payload.new, 'realtime'); })
       .subscribe(function (status) {
@@ -1206,9 +1229,7 @@
     if (locked) {
       var kd = e.key;
       if (!padEl.hidden) {
-        if (/^[0-9]$/.test(kd)) onPadKey(kd);
-        else if (kd === 'Backspace') onPadKey('back');
-        else if (kd === 'Escape') hidePad();
+        if (kd === 'Escape') hidePad();
       } else if (kd === 'Enter' || kd === ' ') { showPad(); e.preventDefault(); }
       return;
     }
@@ -1224,8 +1245,9 @@
   });
 
   /* ------------------------------------------------------------- 잠금 화면 (Supabase Auth 서버 검증) */
-  var lockEl = $('lock'), padEl = $('lockPad'), dotsEl = $('lockDots'), lockCore = $('lockCore');
-  var passBuf = '', pressTimer = null;
+  var lockEl = $('lock'), padEl = $('lockPad'), lockCore = $('lockCore');
+  var lockForm = $('lockForm'), lockPass = $('lockPass'), lockCancel = $('lockCancel');
+  var pressTimer = null;
 
   var DASHBOARD_HTML = '' +
     '<div class="bg" aria-hidden="true">' +
@@ -1293,8 +1315,8 @@
     '<div class="stage" id="stage" aria-live="polite" aria-label="실시간 패널"></div>' +
     '<div class="bottom" id="bottom">' +
       '<div class="stats" id="stats">' +
-        '<div class="stat"><span class="stat-k">기말고사</span><b class="stat-v" id="dExam">—</b><span class="stat-s" id="dExamSub">2026.12.08 08:30</span></div>' +
-        '<div class="stat"><span class="stat-k">수능</span><b class="stat-v" id="dSuneung">—</b><span class="stat-s" id="dSuneungSub">2027.11.18</span></div>' +
+        '<div class="stat"><span class="stat-k" id="dExamLabel">SLOT 1</span><b class="stat-v" id="dExam">—</b><span class="stat-s" id="dExamSub">—</span></div>' +
+        '<div class="stat"><span class="stat-k" id="dSuneungLabel">SLOT 2</span><b class="stat-v" id="dSuneung">—</b><span class="stat-s" id="dSuneungSub">—</span></div>' +
         '<div class="stat"><span class="stat-k">SESSION</span><b class="stat-v mono" id="uptime">00:00:00</b><span class="stat-s">uptime</span></div>' +
         '<div class="stat"><span class="stat-k">RX</span><b class="stat-v mono" id="rxCount">0</b><span class="stat-s">panels received</span></div>' +
         '<div class="stat"><span class="stat-k">LATENCY</span><b class="stat-v mono" id="latency">—</b><span class="stat-s">push → screen</span></div>' +
@@ -1375,6 +1397,7 @@
     if (state.demoTimer) { clearInterval(state.demoTimer); state.demoTimer = null; }
 
     dashboardMounted = false;
+    ddayCfg = { d1: null, d2: null };
     state.seen.clear();
     state.pinned.clear();
     state.rx = 0;
@@ -1388,19 +1411,15 @@
     stageEl = bannersEl = histEl = focusEl = topEl = bottomEl = null;
   }
 
-  function updateDots() {
-    var dots = dotsEl.querySelectorAll('i');
-    for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('on', i < passBuf.length);
-  }
   function showPad() {
     if (!locked) return;
     lockCore.hidden = true;
     padEl.hidden = false;
-    passBuf = ''; updateDots(); dotsEl.classList.remove('bad');
+    if (lockPass) { lockPass.value = ''; lockPass.classList.remove('bad'); setTimeout(function () { try { lockPass.focus(); } catch (e) {} }, 40); }
   }
   function hidePad() {
     padEl.hidden = true; lockCore.hidden = false;
-    passBuf = ''; updateDots(); dotsEl.classList.remove('bad');
+    if (lockPass) { lockPass.value = ''; lockPass.classList.remove('bad'); }
   }
   function flushPending() {
     var list = pending.slice();
@@ -1417,6 +1436,7 @@
     setTimeout(function () { lockEl.hidden = true; lockEl.classList.remove('out'); }, 420);
     setTimeout(function () { fitClock(); layout(true); }, 460);
     setNet('init');
+    loadSettings();
     bulkLoad();
     vProbe();
     flushPending();
@@ -1431,16 +1451,19 @@
     hidePad();
   }
   function failPass() {
-    dotsEl.classList.add('bad');
+    if (lockPass) lockPass.classList.add('bad');
     padEl.classList.add('shake');
     setTimeout(function () { padEl.classList.remove('shake'); }, 340);
-    setTimeout(function () { passBuf = ''; updateDots(); dotsEl.classList.remove('bad'); }, 520);
+    setTimeout(function () {
+      if (lockPass) { lockPass.value = ''; lockPass.classList.remove('bad'); try { lockPass.focus(); } catch (e) {} }
+    }, 520);
   }
   function checkPass() {
     if (authBusy) return;
-    if (!client || !client.auth) { failPass(); return; }
+    var pw = lockPass ? lockPass.value : '';
+    if (!pw || !client || !client.auth) { failPass(); return; }
     authBusy = true;
-    client.auth.signInWithPassword({ email: HUD_AUTH_EMAIL, password: passBuf })
+    client.auth.signInWithPassword({ email: HUD_AUTH_EMAIL, password: pw })
       .then(function (res) {
         authBusy = false;
         if (res && res.data && res.data.session) {
@@ -1455,16 +1478,6 @@
         failPass();
       });
   }
-  function onPadKey(k) {
-    if (authBusy) return;
-    if (k === 'cancel') { hidePad(); return; }
-    if (k === 'back') { passBuf = passBuf.slice(0, -1); updateDots(); return; }
-    if (passBuf.length >= 4) return;
-    passBuf += k;
-    updateDots();
-    blip(1100, 0.06, 0.03);
-    if (passBuf.length === 4) setTimeout(checkPass, 140);
-  }
   if (lockEl) {
     lockCore.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     lockCore.addEventListener('pointerdown', function () {
@@ -1474,10 +1487,8 @@
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
       lockCore.addEventListener(ev, function () { clearTimeout(pressTimer); });
     });
-    dotsEl.parentNode.addEventListener('click', function (e) {
-      var b = e.target.closest ? e.target.closest('button[data-k]') : null;
-      if (b) onPadKey(b.getAttribute('data-k'));
-    });
+    if (lockForm) lockForm.addEventListener('submit', function (e) { e.preventDefault(); checkPass(); });
+    if (lockCancel) lockCancel.addEventListener('click', hidePad);
     padEl.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
 
@@ -1992,7 +2003,7 @@
   function vSubscribe() {
     if (!client || V.sub) return;
     try {
-      V.sub = client.channel('friday_voice')
+      V.sub = client.channel('friday_voice', { config: { private: true } })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hud_voice' },
           function (payload) { if (payload && payload.new) vOnReply(payload.new); })
         .subscribe();
