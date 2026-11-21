@@ -1141,7 +1141,7 @@
     if (!client) return;
     if (state.channel) { try { client.removeChannel(state.channel); } catch (e) {} state.channel = null; }
 
-    state.channel = client.channel('friday_hud_live', { config: { private: true, broadcast: { self: false } } })
+    state.channel = client.channel('friday_hud_live', { config: { broadcast: { self: false } } })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: TABLE },
         function (payload) { if (payload && payload.new) receive(payload.new, 'realtime'); })
       .subscribe(function (status) {
@@ -2003,7 +2003,7 @@
   function vSubscribe() {
     if (!client || V.sub) return;
     try {
-      V.sub = client.channel('friday_voice', { config: { private: true } })
+      V.sub = client.channel('friday_voice')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hud_voice' },
           function (payload) { if (payload && payload.new) vOnReply(payload.new); })
         .subscribe();
