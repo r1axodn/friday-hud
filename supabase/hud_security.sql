@@ -111,11 +111,14 @@ create policy "hud_settings_owner_read"
 do $$
 begin
   if to_regclass('realtime.messages') is not null then
-    execute 'alter table realtime.messages enable row level security';
-    execute 'drop policy if exists "hud_rt_owner_read" on realtime.messages';
-    execute 'create policy "hud_rt_owner_read" on realtime.messages for select to authenticated using (auth.uid() = public.hud_owner_id())';
-    execute 'drop policy if exists "hud_rt_owner_write" on realtime.messages';
-    execute 'create policy "hud_rt_owner_write" on realtime.messages for insert to authenticated with check (auth.uid() = public.hud_owner_id())';
+    begin
+      execute 'drop policy if exists "hud_rt_owner_read" on realtime.messages';
+      execute 'create policy "hud_rt_owner_read" on realtime.messages for select to authenticated using (auth.uid() = public.hud_owner_id())';
+      execute 'drop policy if exists "hud_rt_owner_write" on realtime.messages';
+      execute 'create policy "hud_rt_owner_write" on realtime.messages for insert to authenticated with check (auth.uid() = public.hud_owner_id())';
+    exception when insufficient_privilege then
+      raise notice 'realtime.messages policy skipped (managed by supabase_realtime_admin)';
+    end;
   end if;
 end $$;
 
