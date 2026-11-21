@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FRIDAY HUD">
-<meta name="description" content="FRIDAY HUD — 화면 중앙 시계·D-DAY 위로 떠오르는 아이언맨 스타일 플로팅 홀로그램 창">
+<meta name="description" content="FRIDAY HUD — 개인 홀로그램 대시보드">
 <title>FRIDAY HUD</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=23">
+<link rel="stylesheet" href="style.css?v=24">
 <script>
   window.__errs = [];
   addEventListener("error", function (e) { window.__errs.push(String((e && e.message) || e)); });
@@ -26,190 +26,9 @@
 </head>
 <body>
 
-<div id="hud" class="hud">
+<div id="hud" class="hud" hidden></div>
 
-  <!-- 배경 레이어 -->
-  <div class="bg" aria-hidden="true">
-    <div class="bg-grid"></div>
-    <div class="bg-sweep"></div>
-    <div class="bg-rings"></div>
-    <div class="bg-scan"></div>
-    <div class="bg-vignette"></div>
-  </div>
-
-  <!-- 상단 바 -->
-  <header class="top">
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 44 44" aria-hidden="true">
-        <circle cx="22" cy="22" r="20" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.2"/>
-        <circle cx="22" cy="22" r="14" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1.2"
-                stroke-dasharray="10 6"/>
-        <circle cx="22" cy="22" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
-        <circle cx="22" cy="22" r="2.2" fill="currentColor"/>
-        <path d="M22 2v6M22 36v6M2 22h6M36 22h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-      </svg>
-      <div class="brand-txt">
-        <h1>FRIDAY<span class="brand-sub">HUD</span></h1>
-        <p>personal heads-up display <span class="sep">//</span> <span id="connShort">link</span></p>
-      </div>
-    </div>
-
-    <div class="top-actions">
-      <div class="pill work" id="corePill" title="피클이 지금 뒤에서 작업 중입니다" hidden>
-        <span class="dot" aria-hidden="true"></span>
-        <span id="corePillText">WORKING</span>
-      </div>
-      <div class="pill" id="netPill" title="실시간 연결 상태">
-        <span class="dot" aria-hidden="true"></span>
-        <span id="netText">CONNECTING</span>
-      </div>
-      <button class="btn" id="btnTidy" type="button" title="창을 화면 전체에 다시 펼치기">TIDY</button>
-      <button class="btn" id="btnDemo" type="button">DEMO POPUP</button>
-      <button class="btn ghost" id="btnCore" type="button" aria-pressed="false"
-              title="가운데 코어의 작업 중 상태를 미리 보기 (누를 때마다 작업 중 ↔ 평상시)">CORE TEST</button>
-      <button class="btn ghost" id="btnSfx" type="button" aria-pressed="false" title="알림음 켜기/끄기">SFX</button>
-      <button class="btn ghost" id="btnFull" type="button" title="전체화면 (아이패드: 화면 꽉 채우기)">FULL</button>
-      <button class="btn ghost" id="btnLock" type="button" title="잠그기">LOCK</button>
-    </div>
-  </header>
-
-  <!-- 중앙 코어: 화면 정중앙에 고정되는 시계 · 회전 링 -->
-  <div class="core" id="core">
-    <div class="core-rings" aria-hidden="true">
-      <svg viewBox="0 0 400 400">
-        <g id="ticks"></g>
-        <circle class="ring thin" cx="200" cy="200" r="191"></circle>
-        <circle class="ring arc a1" cx="200" cy="200" r="176"></circle>
-        <circle class="ring sec" id="secRing" cx="200" cy="200" r="161"
-                transform="rotate(-90 200 200)"></circle>
-        <circle class="ring dash" cx="200" cy="200" r="142"></circle>
-        <circle class="ring arc a2" cx="200" cy="200" r="118"></circle>
-        <circle class="ring faint" cx="200" cy="200" r="88"></circle>
-        <circle class="ring arc a3" cx="200" cy="200" r="62"></circle>
-      </svg>
-    </div>
-    <div class="core-body">
-      <div class="core-tag"><i class="live" aria-hidden="true"></i>FRIDAY CORE<span class="sep">//</span><span id="coreLink">LINK</span></div>
-      <div class="clock">
-        <div class="time" id="time" aria-label="현재 시각">
-          <span id="tH">--</span><i class="colon">:</i><span id="tM">--</span><i class="colon">:</i><span id="tS">--</span>
-        </div>
-        <div class="date" id="date">—</div>
-      </div>
-      <div class="core-foot" id="coreNext">NEXT —</div>
-      <div class="core-status-wrap">
-        <div class="core-status" id="coreStatus" aria-live="polite">
-          <span class="cs-dot" aria-hidden="true"></span>
-          <b>WORKING</b>
-          <span class="cs-sep" aria-hidden="true">·</span>
-          <span class="cs-msg" id="coreStatusMsg">작업 중</span>
-        </div>
-      </div>
-    </div>
-    <span class="core-mark m1" aria-hidden="true"></span>
-    <span class="core-mark m2" aria-hidden="true"></span>
-    <span class="core-mark m3" aria-hidden="true"></span>
-    <span class="core-mark m4" aria-hidden="true"></span>
-  </div>
-
-  <!-- 플로팅 홀로그램 창 레이어 (화면 전체) -->
-  <div class="stage" id="stage" aria-live="polite" aria-label="실시간 패널"></div>
-
-  <!-- 하단 주변부 계기 -->
-  <div class="bottom" id="bottom">
-    <div class="stats" id="stats">
-      <div class="stat">
-        <span class="stat-k">기말고사</span>
-        <b class="stat-v" id="dExam">—</b>
-        <span class="stat-s" id="dExamSub">2026.12.08 08:30</span>
-      </div>
-      <div class="stat">
-        <span class="stat-k">수능</span>
-        <b class="stat-v" id="dSuneung">—</b>
-        <span class="stat-s" id="dSuneungSub">2027.11.18</span>
-      </div>
-      <div class="stat">
-        <span class="stat-k">SESSION</span>
-        <b class="stat-v mono" id="uptime">00:00:00</b>
-        <span class="stat-s">uptime</span>
-      </div>
-      <div class="stat">
-        <span class="stat-k">RX</span>
-        <b class="stat-v mono" id="rxCount">0</b>
-        <span class="stat-s">panels received</span>
-      </div>
-      <div class="stat">
-        <span class="stat-k">LATENCY</span>
-        <b class="stat-v mono" id="latency">—</b>
-        <span class="stat-s">push → screen</span>
-      </div>
-    </div>
-
-    <!-- 음성 대화 (마이크 → 피클) -->
-    <section class="voice" id="voiceBar" aria-label="피클 음성 대화">
-      <div class="voice-head">
-        <span class="vh-id">VOICE LINK</span>
-        <span class="vh-sep" aria-hidden="true">//</span>
-        <span class="vh-state" id="vState"><i class="vh-dot" aria-hidden="true"></i><b id="vStateTxt">대기</b></span>
-      </div>
-
-      <button class="mic" id="btnMic" type="button" aria-pressed="false"
-              title="누르고 있는 동안 말하세요 — 손을 떼면 전송">
-        <span class="mic-ico" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-               stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="2.6" width="6" height="11" rx="3"/>
-            <path d="M5.5 11.4a6.5 6.5 0 0 0 13 0M12 17.9v3.5M9 21.4h6"/>
-          </svg>
-        </span>
-        <span class="mic-txt" id="micTxt">HOLD TO TALK</span>
-      </button>
-
-      <p class="voice-line" id="vLine">마이크를 길게 누르고 말하면 피클이 듣고, 답을 소리로 읽어 줍니다</p>
-
-      <div class="voice-actions">
-        <button class="btn tiny ghost" id="btnText" type="button"
-                title="음성 인식이 안 될 때 텍스트로 입력">입력</button>
-        <button class="btn tiny ghost" id="btnTts" type="button" aria-pressed="true"
-                title="피클의 답을 소리로 읽기">🔊 읽기</button>
-        <button class="btn tiny ghost" id="btnVlog" type="button" aria-pressed="false"
-                title="대화 기록 펼치기 (V)">LOG</button>
-        <a class="btn tiny call" id="btnCall" href="pickle://call"
-           title="피클 앱 음성 통화를 바로 겁니다">📞 지금 통화</a>
-      </div>
-    </section>
-
-    <form class="voice-in" id="vForm" hidden autocomplete="off">
-      <input id="vInput" type="text" enterkeyhint="send" maxlength="600"
-             placeholder="여기에 말을 적고 Enter — 예: 오늘 일정 알려줘" aria-label="피클에게 보낼 말">
-      <button class="btn tiny" id="vSend" type="submit">보내기</button>
-      <button class="btn tiny ghost" id="vCancel" type="button">닫기</button>
-    </form>
-
-    <section class="rail">
-      <div class="rail-head">
-        <span>RECENT FEED</span>
-        <button class="mini" id="btnClear" type="button">비우기</button>
-      </div>
-      <ul class="rail-list" id="history"></ul>
-      <p class="rail-empty" id="railEmpty">아직 받은 패널이 없어요 · <b>DEMO POPUP</b> 으로 미리 볼 수 있어요</p>
-    </section>
-
-    <footer class="foot">
-      <div class="tele">
-        <span id="teleState">SYSTEM READY</span>
-        <span class="tele-sep">|</span>
-        <span id="teleSource">SUPABASE · vipaohlgodyrbjnsewuo</span>
-        <span class="tele-sep">|</span>
-        <span id="teleClock">—</span>
-      </div>
-      <div class="hint">창 제목줄 끌어 옮기기 · 우하단 모서리로 크기 조절 · <kbd>D</kbd> 데모 · <kbd>F</kbd> 전체화면 · <kbd>ESC</kbd> 닫기</div>
-    </footer>
-  </div>
-
-</div>
-
-<!-- 잠금 화면 -->
+<!-- 잠금 화면 (인증 전에는 잠금 화면 외 어떠한 대시보드 콘텐츠도 내려주거나 렌더링하지 않음) -->
 <div class="lock" id="lock">
   <div class="lock-bg" aria-hidden="true"></div>
   <div class="lock-core" id="lockCore">
@@ -237,24 +56,10 @@
   </div>
 </div>
 
-<!-- 음성 대화 기록 (LOG 버튼 / V) -->
-<div class="vlog" id="vlog" hidden aria-label="음성 대화 기록">
-  <div class="vlog-head">
-    <span>VOICE LOG</span><span class="vlog-sub">나 ↔ FRIDAY</span>
-    <button class="icon-btn" id="btnVlogClose" type="button" aria-label="닫기">✕</button>
-  </div>
-  <ul class="vlog-list" id="vlogList"></ul>
-  <p class="vlog-empty" id="vlogEmpty">아직 대화가 없어요 · 마이크를 길게 눌러 말해 보세요</p>
-</div>
-
-<!-- 긴급 알림 배너 자리 -->
-<div class="banners" id="banners" aria-live="assertive"></div>
-
-<!-- 카드 전체화면 보기 -->
-<div class="focus" id="focus" hidden></div>
+<div id="overlays"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"
         onerror="window.__sbLoadFail=true"></script>
-<script src="app.js?v=23"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>

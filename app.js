@@ -85,17 +85,21 @@
     sfx: false
   };
 
-  /* 잠금 상태 (카드 수신은 버퍼링해 두었다가 해제 시 한번에 렌더) */
+  var HUD_AUTH_EMAIL = 'friday-hud@r1axodn.local';
+
+  /* 잠금 상태 (인증 확인 전까지 대시보드 DOM 생성/데이터 fetch/구독 일절 금지) */
   var locked = true;
+  var dashboardMounted = false;
+  var authBusy = false;
   var pending = [];
 
   /* ---------------------------------------------------------------- view */
-  var stageEl = $('stage');
-  var bannersEl = $('banners');
-  var histEl = $('history');
-  var focusEl = $('focus');
-  var topEl = document.querySelector('.top');
-  var bottomEl = $('bottom');
+  var stageEl = null;
+  var bannersEl = null;
+  var histEl = null;
+  var focusEl = null;
+  var topEl = null;
+  var bottomEl = null;
 
   var zTop = 100;
   var seq = 0;
@@ -106,6 +110,13 @@
 
   function tickClock() {
     var now = new Date();
+    var lt = $('lockTime'), ld = $('lockDate');
+    if (lt) lt.textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    if (ld) ld.textContent = now.getFullYear() + '.' + pad(now.getMonth() + 1) + '.' + pad(now.getDate()) +
+      ' (' + WEEK[now.getDay()] + ')';
+
+    if (!dashboardMounted) return;
+
     $('tH').textContent = pad(now.getHours());
     $('tM').textContent = pad(now.getMinutes());
     $('tS').textContent = pad(now.getSeconds());
@@ -116,10 +127,6 @@
     /* 초침 링 */
     var sr = $('secRing');
     if (sr) sr.style.strokeDashoffset = (SEC_RING_LEN * (1 - (now.getSeconds() + now.getMilliseconds() / 1000) / 60)).toFixed(1);
-
-    $('lockTime').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
-    $('lockDate').textContent = now.getFullYear() + '.' + pad(now.getMonth() + 1) + '.' + pad(now.getDate()) +
-      ' (' + WEEK[now.getDay()] + ')';
 
     var e = dday(EXAM_START, key);
     $('dExam').textContent = e.text;
@@ -148,6 +155,7 @@
 
   /* ---- 코어(시계) 크기: 화면 대비 + 창이 비켜설 공간 확보 ---- */
   function fitClock() {
+    if (!dashboardMounted || !topEl) return;
     var vw = window.innerWidth, vh = window.innerHeight;
     /* 링 지름을 먼저 정하고, 시계 글자는 링 안쪽(약 0.72 지름)에 들어오게 */
     var d = clamp(Math.min(vw * 0.62, vh * 0.92), 210, 780);
@@ -930,14 +938,6 @@
     $('railEmpty').hidden = history.length > 0;
     requestLayout();
   }
-  $('btnClear').addEventListener('click', function () {
-    var cards = stageEl.querySelectorAll('.card');
-    for (var i = 0; i < cards.length; i++) dismiss(cards[i]);
-    history.length = 0;
-    renderHistory();
-    var bs = bannersEl.querySelectorAll('.banner');
-    for (var j = 0; j < bs.length; j++) kill(bs[j]);
-  });
 
   /* ------------------------------------------------------------ 전체화면 보기 */
   function openFocus(panel) {
@@ -1153,24 +1153,35 @@
   }
 
   /* ------------------------------------------------------------- 컨트롤 */
-  $('btnDemo').addEventListener('click', function () { demoPopup(); });
-  $('btnCore').addEventListener('click', function () {
-    /* DB 를 건드리지 않는 미리보기 토글 */
-    if (core.state === 'working') {
-      setCoreState('idle');
-      toast('코어 · 평상시 상태');
-    } else {
-      setCoreState('working', '자료 찾는 중...');
-      toast('코어 · 작업 중 상태 미리보기 (3분 뒤 자동 복귀)');
-    }
-  });
-  $('btnTidy').addEventListener('click', function () { tidy(); toast('창을 화면 전체에 다시 펼쳤어요'); });
-  $('btnSfx').addEventListener('click', function () {
-    state.sfx = !state.sfx;
-    this.setAttribute('aria-pressed', state.sfx ? 'true' : 'false');
-    if (state.sfx) blip(1180, 0.14, 0.05);
-  });
-  $('btnFull').addEventListener('click', toggleFullscreen);
+  function bindDashboardControls() {
+    $('btnClear').addEventListener('click', function () {
+      var cards = stageEl.querySelectorAll('.card');
+      for (var i = 0; i < cards.length; i++) dismiss(cards[i]);
+      history.length = 0;
+      renderHistory();
+      var bs = bannersEl.querySelectorAll('.banner');
+      for (var j = 0; j < bs.length; j++) kill(bs[j]);
+    });
+    $('btnDemo').addEventListener('click', function () { demoPopup(); });
+    $('btnCore').addEventListener('click', function () {
+      /* DB 를 건드리지 않는 미리보기 토글 */
+      if (core.state === 'working') {
+        setCoreState('idle');
+        toast('코어 · 평상시 상태');
+      } else {
+        setCoreState('working', '자료 찾는 중...');
+        toast('코어 · 작업 중 상태 미리보기 (3분 뒤 자동 복귀)');
+      }
+    });
+    $('btnTidy').addEventListener('click', function () { tidy(); toast('창을 화면 전체에 다시 펼쳤어요'); });
+    $('btnSfx').addEventListener('click', function () {
+      state.sfx = !state.sfx;
+      this.setAttribute('aria-pressed', state.sfx ? 'true' : 'false');
+      if (state.sfx) blip(1180, 0.14, 0.05);
+    });
+    $('btnFull').addEventListener('click', toggleFullscreen);
+    $('btnLock').addEventListener('click', lockNow);
+  }
 
   function toggleFullscreen() {
     var d = document.documentElement;
@@ -1212,14 +1223,170 @@
     }
   });
 
-  /* ------------------------------------------------------------- 잠금 화면 */
-  var PASS_KEY = 'fridayhud.pass';
-  var DEFAULT_PASS = '0409';
-  function getPass() {
-    try { return localStorage.getItem(PASS_KEY) || DEFAULT_PASS; } catch (e) { return DEFAULT_PASS; }
-  }
+  /* ------------------------------------------------------------- 잠금 화면 (Supabase Auth 서버 검증) */
   var lockEl = $('lock'), padEl = $('lockPad'), dotsEl = $('lockDots'), lockCore = $('lockCore');
   var passBuf = '', pressTimer = null;
+
+  var DASHBOARD_HTML = '' +
+    '<div class="bg" aria-hidden="true">' +
+      '<div class="bg-grid"></div><div class="bg-sweep"></div><div class="bg-rings"></div>' +
+      '<div class="bg-scan"></div><div class="bg-vignette"></div>' +
+    '</div>' +
+    '<header class="top">' +
+      '<div class="brand">' +
+        '<svg class="logo" viewBox="0 0 44 44" aria-hidden="true">' +
+          '<circle cx="22" cy="22" r="20" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="1.2"/>' +
+          '<circle cx="22" cy="22" r="14" fill="none" stroke="currentColor" stroke-opacity=".55" stroke-width="1.2" stroke-dasharray="10 6"/>' +
+          '<circle cx="22" cy="22" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/>' +
+          '<circle cx="22" cy="22" r="2.2" fill="currentColor"/>' +
+          '<path d="M22 2v6M22 36v6M2 22h6M36 22h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>' +
+        '</svg>' +
+        '<div class="brand-txt">' +
+          '<h1>FRIDAY<span class="brand-sub">HUD</span></h1>' +
+          '<p>personal heads-up display <span class="sep">//</span> <span id="connShort">link</span></p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="top-actions">' +
+        '<div class="pill work" id="corePill" title="피클이 지금 뒤에서 작업 중입니다" hidden>' +
+          '<span class="dot" aria-hidden="true"></span><span id="corePillText">WORKING</span>' +
+        '</div>' +
+        '<div class="pill" id="netPill" title="실시간 연결 상태">' +
+          '<span class="dot" aria-hidden="true"></span><span id="netText">CONNECTING</span>' +
+        '</div>' +
+        '<button class="btn" id="btnTidy" type="button" title="창을 화면 전체에 다시 펼치기">TIDY</button>' +
+        '<button class="btn" id="btnDemo" type="button">DEMO POPUP</button>' +
+        '<button class="btn ghost" id="btnCore" type="button" aria-pressed="false" title="가운데 코어의 작업 중 상태를 미리 보기 (누를 때마다 작업 중 ↔ 평상시)">CORE TEST</button>' +
+        '<button class="btn ghost" id="btnSfx" type="button" aria-pressed="false" title="알림음 켜기/끄기">SFX</button>' +
+        '<button class="btn ghost" id="btnFull" type="button" title="전체화면 (아이패드: 화면 꽉 채우기)">FULL</button>' +
+        '<button class="btn ghost" id="btnLock" type="button" title="잠그기">LOCK</button>' +
+      '</div>' +
+    '</header>' +
+    '<div class="core" id="core">' +
+      '<div class="core-rings" aria-hidden="true">' +
+        '<svg viewBox="0 0 400 400">' +
+          '<g id="ticks"></g>' +
+          '<circle class="ring thin" cx="200" cy="200" r="191"></circle>' +
+          '<circle class="ring arc a1" cx="200" cy="200" r="176"></circle>' +
+          '<circle class="ring sec" id="secRing" cx="200" cy="200" r="161" transform="rotate(-90 200 200)"></circle>' +
+          '<circle class="ring dash" cx="200" cy="200" r="142"></circle>' +
+          '<circle class="ring arc a2" cx="200" cy="200" r="118"></circle>' +
+          '<circle class="ring faint" cx="200" cy="200" r="88"></circle>' +
+          '<circle class="ring arc a3" cx="200" cy="200" r="62"></circle>' +
+        '</svg>' +
+      '</div>' +
+      '<div class="core-body">' +
+        '<div class="core-tag"><i class="live" aria-hidden="true"></i>FRIDAY CORE<span class="sep">//</span><span id="coreLink">LINK</span></div>' +
+        '<div class="clock">' +
+          '<div class="time" id="time" aria-label="현재 시각"><span id="tH">--</span><i class="colon">:</i><span id="tM">--</span><i class="colon">:</i><span id="tS">--</span></div>' +
+          '<div class="date" id="date">—</div>' +
+        '</div>' +
+        '<div class="core-foot" id="coreNext">NEXT —</div>' +
+        '<div class="core-status-wrap">' +
+          '<div class="core-status" id="coreStatus" aria-live="polite">' +
+            '<span class="cs-dot" aria-hidden="true"></span><b>WORKING</b><span class="cs-sep" aria-hidden="true">·</span><span class="cs-msg" id="coreStatusMsg">작업 중</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<span class="core-mark m1" aria-hidden="true"></span><span class="core-mark m2" aria-hidden="true"></span>' +
+      '<span class="core-mark m3" aria-hidden="true"></span><span class="core-mark m4" aria-hidden="true"></span>' +
+    '</div>' +
+    '<div class="stage" id="stage" aria-live="polite" aria-label="실시간 패널"></div>' +
+    '<div class="bottom" id="bottom">' +
+      '<div class="stats" id="stats">' +
+        '<div class="stat"><span class="stat-k">기말고사</span><b class="stat-v" id="dExam">—</b><span class="stat-s" id="dExamSub">2026.12.08 08:30</span></div>' +
+        '<div class="stat"><span class="stat-k">수능</span><b class="stat-v" id="dSuneung">—</b><span class="stat-s" id="dSuneungSub">2027.11.18</span></div>' +
+        '<div class="stat"><span class="stat-k">SESSION</span><b class="stat-v mono" id="uptime">00:00:00</b><span class="stat-s">uptime</span></div>' +
+        '<div class="stat"><span class="stat-k">RX</span><b class="stat-v mono" id="rxCount">0</b><span class="stat-s">panels received</span></div>' +
+        '<div class="stat"><span class="stat-k">LATENCY</span><b class="stat-v mono" id="latency">—</b><span class="stat-s">push → screen</span></div>' +
+      '</div>' +
+      '<section class="voice" id="voiceBar" aria-label="피클 음성 대화">' +
+        '<div class="voice-head"><span class="vh-id">VOICE LINK</span><span class="vh-sep" aria-hidden="true">//</span>' +
+          '<span class="vh-state" id="vState"><i class="vh-dot" aria-hidden="true"></i><b id="vStateTxt">대기</b></span></div>' +
+        '<button class="mic" id="btnMic" type="button" aria-pressed="false" title="누르고 있는 동안 말하세요 — 손을 떼면 전송">' +
+          '<span class="mic-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+            '<rect x="9" y="2.6" width="6" height="11" rx="3"/><path d="M5.5 11.4a6.5 6.5 0 0 0 13 0M12 17.9v3.5M9 21.4h6"/></svg></span>' +
+          '<span class="mic-txt" id="micTxt">HOLD TO TALK</span>' +
+        '</button>' +
+        '<p class="voice-line" id="vLine">마이크를 길게 누르고 말하면 피클이 듣고, 답을 소리로 읽어 줍니다</p>' +
+        '<div class="voice-actions">' +
+          '<button class="btn tiny ghost" id="btnText" type="button" title="음성 인식이 안 될 때 텍스트로 입력">입력</button>' +
+          '<button class="btn tiny ghost" id="btnTts" type="button" aria-pressed="true" title="피클의 답을 소리로 읽기">🔊 읽기</button>' +
+          '<button class="btn tiny ghost" id="btnVlog" type="button" aria-pressed="false" title="대화 기록 펼치기 (V)">LOG</button>' +
+          '<a class="btn tiny call" id="btnCall" href="pickle://call" title="피클 앱 음성 통화를 바로 겁니다">📞 지금 통화</a>' +
+        '</div>' +
+      '</section>' +
+      '<form class="voice-in" id="vForm" hidden autocomplete="off">' +
+        '<input id="vInput" type="text" enterkeyhint="send" maxlength="600" placeholder="여기에 말을 적고 Enter — 예: 오늘 일정 알려줘" aria-label="피클에게 보낼 말">' +
+        '<button class="btn tiny" id="vSend" type="submit">보내기</button>' +
+        '<button class="btn tiny ghost" id="vCancel" type="button">닫기</button>' +
+      '</form>' +
+      '<section class="rail">' +
+        '<div class="rail-head"><span>RECENT FEED</span><button class="mini" id="btnClear" type="button">비우기</button></div>' +
+        '<ul class="rail-list" id="history"></ul>' +
+        '<p class="rail-empty" id="railEmpty">아직 받은 패널이 없어요 · <b>DEMO POPUP</b> 으로 미리 볼 수 있어요</p>' +
+      '</section>' +
+      '<footer class="foot">' +
+        '<div class="tele"><span id="teleState">SYSTEM READY</span><span class="tele-sep">|</span>' +
+          '<span id="teleSource">SUPABASE · vipaohlgodyrbjnsewuo</span><span class="tele-sep">|</span><span id="teleClock">—</span></div>' +
+        '<div class="hint">창 제목줄 끌어 옮기기 · 우하단 모서리로 크기 조절 · <kbd>D</kbd> 데모 · <kbd>F</kbd> 전체화면 · <kbd>ESC</kbd> 닫기</div>' +
+      '</footer>' +
+    '</div>';
+
+  var OVERLAYS_HTML = '' +
+    '<div class="vlog" id="vlog" hidden aria-label="음성 대화 기록">' +
+      '<div class="vlog-head"><span>VOICE LOG</span><span class="vlog-sub">나 ↔ FRIDAY</span>' +
+        '<button class="icon-btn" id="btnVlogClose" type="button" aria-label="닫기">✕</button></div>' +
+      '<ul class="vlog-list" id="vlogList"></ul>' +
+      '<p class="vlog-empty" id="vlogEmpty">아직 대화가 없어요 · 마이크를 길게 눌러 말해 보세요</p>' +
+    '</div>' +
+    '<div class="banners" id="banners" aria-live="assertive"></div>' +
+    '<div class="focus" id="focus" hidden></div>';
+
+  function mountDashboard() {
+    if (dashboardMounted) return;
+    var hudEl = $('hud');
+    var ovEl = $('overlays');
+    hudEl.innerHTML = DASHBOARD_HTML;
+    hudEl.hidden = false;
+    ovEl.innerHTML = OVERLAYS_HTML;
+
+    stageEl = $('stage');
+    bannersEl = $('banners');
+    histEl = $('history');
+    focusEl = $('focus');
+    topEl = document.querySelector('.top');
+    bottomEl = $('bottom');
+    dashboardMounted = true;
+
+    drawTicks();
+    tickClock();
+    fitClock();
+    renderCore();
+    syncBannerOffset();
+    bindDashboardControls();
+    vInitVoice();
+  }
+
+  function unmountDashboard() {
+    if (state.channel && client) { try { client.removeChannel(state.channel); } catch (e) {} state.channel = null; }
+    if (V.sub && client) { try { client.removeChannel(V.sub); } catch (e) {} V.sub = null; }
+    stopPolling();
+    if (V.pollTimer) { clearInterval(V.pollTimer); V.pollTimer = null; }
+    if (state.demoTimer) { clearInterval(state.demoTimer); state.demoTimer = null; }
+
+    dashboardMounted = false;
+    state.seen.clear();
+    state.pinned.clear();
+    state.rx = 0;
+    history.length = 0;
+    pending.length = 0;
+
+    var hudEl = $('hud');
+    var ovEl = $('overlays');
+    if (hudEl) { hudEl.innerHTML = ''; hudEl.hidden = true; }
+    if (ovEl) { ovEl.innerHTML = ''; }
+    stageEl = bannersEl = histEl = focusEl = topEl = bottomEl = null;
+  }
 
   function updateDots() {
     var dots = dotsEl.querySelectorAll('i');
@@ -1242,34 +1409,54 @@
       if (list[i].type === 'alert') showBanner(list[i]); else pushCard(list[i]);
     }
   }
-  function unlock() {
+  function unlockWithSession() {
     if (!locked) return;
     locked = false;
+    mountDashboard();
     lockEl.classList.add('out');
     setTimeout(function () { lockEl.hidden = true; lockEl.classList.remove('out'); }, 420);
     setTimeout(function () { fitClock(); layout(true); }, 460);
+    setNet('init');
+    bulkLoad();
+    vProbe();
     flushPending();
   }
   function lockNow() {
     if (locked) return;
     locked = true;
+    if (client && client.auth) { try { client.auth.signOut(); } catch (e) {} }
+    unmountDashboard();
     lockEl.hidden = false;
     lockEl.classList.remove('out');
     hidePad();
   }
+  function failPass() {
+    dotsEl.classList.add('bad');
+    padEl.classList.add('shake');
+    setTimeout(function () { padEl.classList.remove('shake'); }, 340);
+    setTimeout(function () { passBuf = ''; updateDots(); dotsEl.classList.remove('bad'); }, 520);
+  }
   function checkPass() {
-    if (passBuf === getPass()) {
-      blip(1320, 0.18, 0.05);
-      setTimeout(function () { blip(1760, 0.2, 0.04); }, 100);
-      unlock();
-    } else {
-      dotsEl.classList.add('bad');
-      padEl.classList.add('shake');
-      setTimeout(function () { padEl.classList.remove('shake'); }, 340);
-      setTimeout(function () { passBuf = ''; updateDots(); dotsEl.classList.remove('bad'); }, 520);
-    }
+    if (authBusy) return;
+    if (!client || !client.auth) { failPass(); return; }
+    authBusy = true;
+    client.auth.signInWithPassword({ email: HUD_AUTH_EMAIL, password: passBuf })
+      .then(function (res) {
+        authBusy = false;
+        if (res && res.data && res.data.session) {
+          blip(1320, 0.18, 0.05);
+          setTimeout(function () { blip(1760, 0.2, 0.04); }, 100);
+          unlockWithSession();
+        } else {
+          failPass();
+        }
+      }, function () {
+        authBusy = false;
+        failPass();
+      });
   }
   function onPadKey(k) {
+    if (authBusy) return;
     if (k === 'cancel') { hidePad(); return; }
     if (k === 'back') { passBuf = passBuf.slice(0, -1); updateDots(); return; }
     if (passBuf.length >= 4) return;
@@ -1334,19 +1521,35 @@
     sub: null
   };
 
-  var voiceBar = $('voiceBar');
-  var vLineEl = $('vLine');
-  var vStateTxt = $('vStateTxt');
-  var btnMic = $('btnMic');
-  var micTxt = $('micTxt');
-  var btnTts = $('btnTts');
-  var btnVlog = $('btnVlog');
-  var vlogEl = $('vlog');
-  var vlogList = $('vlogList');
-  var vlogEmpty = $('vlogEmpty');
-  var vForm = $('vForm');
-  var vInput = $('vInput');
+  var voiceBar = null;
+  var vLineEl = null;
+  var vStateTxt = null;
+  var btnMic = null;
+  var micTxt = null;
+  var btnTts = null;
+  var btnVlog = null;
+  var vlogEl = null;
+  var vlogList = null;
+  var vlogEmpty = null;
+  var vForm = null;
+  var vInput = null;
   var vlogOpen = false;
+  var vKeyBound = false;
+
+  function vBindDom() {
+    voiceBar = $('voiceBar');
+    vLineEl = $('vLine');
+    vStateTxt = $('vStateTxt');
+    btnMic = $('btnMic');
+    micTxt = $('micTxt');
+    btnTts = $('btnTts');
+    btnVlog = $('btnVlog');
+    vlogEl = $('vlog');
+    vlogList = $('vlogList');
+    vlogEmpty = $('vlogEmpty');
+    vForm = $('vForm');
+    vInput = $('vInput');
+  }
 
   /* ---- 상태 표시 ---- */
   function vStatus(kind, text) {
@@ -1815,6 +2018,7 @@
 
   /* ---- 버튼 ---- */
   function vInitVoice() {
+    vBindDom();
     if (!voiceBar) return;
 
     try { if (localStorage.getItem(VTTS_KEY) === '0') V.tts = false; } catch (e) {}
@@ -1882,25 +2086,29 @@
     /* 첫 터치에서 오디오 잠금 해제 (iOS) */
     voiceBar.addEventListener('pointerdown', function () { vUnlockAudio(); });
 
-    /* 데스크톱 확인용 키: M 누르고 말하기, V 대화 기록 */
-    document.addEventListener('keydown', function (e) {
-      if (locked || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-      var tag = (e.target && e.target.tagName) || '';
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      var k = String(e.key || '').toLowerCase();
-      if (k === 'v') { vToggleLog(); }
-      else if (k === 'm') { vStart(); }
-    });
-    document.addEventListener('keyup', function (e) {
-      var tag = (e.target && e.target.tagName) || '';
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-      if (String(e.key || '').toLowerCase() === 'm') vStop();
-    });
+    /* 데스크톱 확인용 키: M 누르고 말하기, V 대화 기록 (한 번만 바인딩) */
+    if (!vKeyBound) {
+      vKeyBound = true;
+      document.addEventListener('keydown', function (e) {
+        if (locked || !dashboardMounted || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+        var tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        var k = String(e.key || '').toLowerCase();
+        if (k === 'v') { vToggleLog(); }
+        else if (k === 'm') { vStart(); }
+      });
+      document.addEventListener('keyup', function (e) {
+        if (locked || !dashboardMounted) return;
+        var tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (String(e.key || '').toLowerCase() === 'm') vStop();
+      });
 
-    if (window.speechSynthesis) {
-      try {
-        window.speechSynthesis.addEventListener('voiceschanged', function () { vPump(); });
-      } catch (e) {}
+      if (window.speechSynthesis) {
+        try {
+          window.speechSynthesis.addEventListener('voiceschanged', function () { vPump(); });
+        } catch (e) {}
+      }
     }
 
     /* 디버그 훅 */
@@ -1918,65 +2126,49 @@
 
   /* ------------------------------------------------------------- 시작 */
   function boot() {
-    drawTicks();
-    fitClock();
     tickClock();
     setInterval(tickClock, 250);
 
-    renderCore();
-    syncBannerOffset();
     window.addEventListener('resize', function () {
+      if (!dashboardMounted) return;
       fitClock();
       syncBannerOffset();
       requestLayout();
     });
     window.addEventListener('orientationchange', function () {
+      if (!dashboardMounted) return;
       setTimeout(function () { fitClock(); syncBannerOffset(); layout(); }, 260);
     });
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', function () { fitClock(); requestLayout(); });
+      window.visualViewport.addEventListener('resize', function () {
+        if (!dashboardMounted) return;
+        fitClock();
+        requestLayout();
+      });
     }
-    document.addEventListener('pointermove', parallaxMove, { passive: true });
+    document.addEventListener('pointermove', function (e) {
+      if (!dashboardMounted) return;
+      parallaxMove(e);
+    }, { passive: true });
 
-    var params = new URLSearchParams(location.search);
-    var demoParam = params.get('demo');
-
-    if (params.get('lock') === '0') { locked = false; lockEl.hidden = true; }
-
-    $('btnLock').addEventListener('click', lockNow);
-
-    vInitVoice();
-
-    if (initSupabase()) {
-      setNet('init');
-      bulkLoad();
-      vProbe();
-    } else {
-      vStatus('err', 'DEMO');
-    }
-
-    setTimeout(function () { fitClock(); layout(); }, 400);
-    setTimeout(function () { layout(); }, 1400);
-
-    if (demoParam !== null && demoParam !== '0') {
-      setTimeout(function () {
-        demoPopup();
-        state.demoTimer = setInterval(demoPopup, 5200);
-      }, 700);
-    } else if (!client) {
-      setTimeout(function () {
-        if (!history.length) demoPopup();
-      }, 900);
+    /* 인증 확인 전까지 어떠한 데이터 fetch / 구독 / 대시보드 렌더링도 수행하지 않는다 */
+    if (initSupabase() && client.auth) {
+      client.auth.getSession().then(function (res) {
+        var session = res && res.data && res.data.session;
+        if (session && session.user) {
+          unlockWithSession();
+        }
+      }, function () {});
     }
 
-    /* 탭이 다시 보이면 연결 상태 재확인 */
+    /* 탭이 다시 보이면 인증된 세션이 풀려 있을 때만 연결 상태 재확인 */
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden && client && state.net !== 'live') {
+      if (!document.hidden && !locked && dashboardMounted && client && state.net !== 'live') {
         client.from(TABLE).select('id').limit(1).then(function (res) {
           if (!res.error) subscribe();
         }, function () {});
       }
-      if (!document.hidden) { coreWatch(); fitClock(); requestLayout(); }
+      if (!document.hidden && dashboardMounted) { coreWatch(); fitClock(); requestLayout(); }
     });
 
     /* PWA (https 에서만) */
@@ -1984,14 +2176,17 @@
       navigator.serviceWorker.register('sw.js').catch(function () {});
     }
 
-    /* 디버그용 */
+    /* 디버그용 (인증 후에만 동작) */
     window.__hud = {
-      state: state, demo: demoPopup, receive: receive, setNet: setNet,
-      core: core, coreStatus: setCoreState, applyCore: applyCore, loadCoreState: loadCoreState,
-      layout: layout, tidy: tidy, slots: function () { return computeSlots(area(), coreSafe(), stageEl.querySelectorAll('.card').length); }
+      state: state,
+      isLocked: function () { return locked; },
+      demo: function () { if (dashboardMounted) demoPopup(); },
+      receive: receive, setNet: setNet,
+      core: core,
+      coreStatus: function (s, msg) { if (dashboardMounted) setCoreState(s, msg); },
+      layout: function () { if (dashboardMounted) layout(); },
+      tidy: function () { if (dashboardMounted) tidy(); }
     };
-    /* 테스트 훅: window.__hudCoreStatus('working', '자료 찾는 중...') / ('idle') */
-    window.__hudCoreStatus = function (s, msg) { setCoreState(s, msg); return core.state; };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
