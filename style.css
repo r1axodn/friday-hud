@@ -903,3 +903,156 @@ kbd{
   .lock-keys{ gap:10px; }
   .lock-hint{ margin-top:3em; }
 }
+/* ============================================================================
+   VOICE LINK — 마이크로 피클과 대화 (하단 계기 띠의 한 줄 + 대화 기록 창)
+   ========================================================================== */
+.voice{
+  position:relative; display:flex; align-items:center; gap:clamp(6px,1vmin,12px);
+  min-width:0;
+  padding:5px clamp(7px,1vmin,11px) 5px clamp(9px,1.2vmin,13px);
+  border:1px solid var(--hair); border-radius:10px;
+  background:linear-gradient(180deg, rgba(6,18,24,.88), rgba(4,10,14,.92));
+  overflow:hidden;
+}
+.voice::before{
+  content:''; position:absolute; left:0; top:0; bottom:0; width:2px;
+  background:linear-gradient(180deg, var(--c), transparent); opacity:.6;
+  transition:background .25s ease, opacity .25s ease;
+}
+.voice.listening{ border-color:rgba(255,196,107,.52); }
+.voice.listening::before{ background:linear-gradient(180deg, var(--gold), transparent); opacity:1; }
+.voice.speaking{ border-color:rgba(126,240,200,.5); }
+.voice.speaking::before{ background:linear-gradient(180deg, var(--mint), transparent); opacity:1; }
+
+.voice-head{
+  display:flex; align-items:center; gap:6px; flex:0 0 auto;
+  font-family:var(--f-display); font-size:9px; letter-spacing:.18em; color:var(--dimmer);
+  white-space:nowrap;
+}
+.voice-head .vh-sep{ color:var(--c); opacity:.4; }
+.vh-state{ display:flex; align-items:center; gap:5px; color:var(--dim); letter-spacing:.1em; }
+.vh-state b{ font-weight:700; color:var(--dim); }
+.vh-dot{
+  width:6px; height:6px; border-radius:50%; flex:0 0 auto;
+  background:var(--c); box-shadow:0 0 7px var(--c); opacity:.75;
+}
+.voice.listening .vh-state, .voice.listening .vh-state b{ color:var(--gold); }
+.voice.listening .vh-dot{ background:var(--gold); box-shadow:0 0 9px var(--gold); animation:workBlink 1s ease-in-out infinite; }
+.voice.speaking .vh-state, .voice.speaking .vh-state b{ color:var(--mint); }
+.voice.speaking .vh-dot{ background:var(--mint); box-shadow:0 0 9px var(--mint); animation:workBlink 1.3s ease-in-out infinite; }
+.voice.err .vh-state, .voice.err .vh-state b{ color:var(--red); }
+.voice.err .vh-dot{ background:var(--red); box-shadow:0 0 9px var(--red); }
+
+/* 마이크 — 누르고 있는 동안 듣는다 */
+.mic{
+  appearance:none; cursor:pointer; flex:0 0 auto;
+  display:flex; align-items:center; gap:7px;
+  padding:5px clamp(9px,1.2vmin,13px) 5px clamp(8px,1vmin,11px);
+  border-radius:999px;
+  border:1px solid var(--hair-2); background:rgba(56,245,255,.10); color:var(--c);
+  font-family:var(--f-display); font-size:clamp(9px,1.25vmin,11px); letter-spacing:.14em; font-weight:700;
+  touch-action:none; -webkit-user-select:none; user-select:none;
+  transition:transform .1s ease, background .16s ease, border-color .16s ease, color .16s ease;
+}
+.mic .mic-ico{ display:flex; }
+.mic svg{ width:15px; height:15px; display:block; }
+.mic:hover{ background:rgba(56,245,255,.18); border-color:var(--c); }
+.mic:active,
+.mic[aria-pressed="true"]{
+  transform:scale(.97);
+  background:rgba(255,196,107,.2); border-color:var(--gold); color:var(--gold);
+}
+.mic[aria-pressed="true"] .mic-ico{ animation:micBeat 1.05s ease-in-out infinite; }
+.mic.unsupported{ border-color:rgba(255,77,109,.4); color:var(--red); background:rgba(255,77,109,.1); }
+@keyframes micBeat{ 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.16) } }
+
+.voice-line{
+  flex:1 1 auto; min-width:0; margin:0;
+  font-size:clamp(11px,1.5vmin,13px); letter-spacing:.01em; color:var(--dim);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.voice-line[data-role="user"]{ color:#fff; }
+.voice-line[data-role="pickle"]{ color:var(--mint); }
+.voice-line[data-role="err"]{ color:var(--red); }
+.voice-line em{ font-style:normal; opacity:.55; }
+
+.voice-actions{ display:flex; align-items:center; gap:5px; flex:0 0 auto; }
+
+.btn.tiny{
+  padding:3px clamp(7px,1vmin,10px); height:26px; border-radius:7px;
+  font-size:clamp(9.5px,1.2vmin,11px); letter-spacing:.06em;
+  display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
+  text-decoration:none;
+}
+.btn.call{
+  color:var(--gold); border-color:rgba(255,196,107,.45); background:rgba(255,196,107,.12);
+}
+.btn.call:hover{ background:rgba(255,196,107,.22); border-color:var(--gold); box-shadow:0 0 16px rgba(255,196,107,.3); }
+
+/* 텍스트 입력 폴백 */
+.voice-in{ display:flex; align-items:center; gap:6px; }
+.voice-in[hidden]{ display:none; }
+.voice-in input{
+  flex:1 1 auto; min-width:0; height:32px;
+  padding:0 11px; border-radius:8px;
+  border:1px solid var(--hair-2); background:rgba(4,12,17,.92); color:var(--ink);
+  font-family:var(--f-ui); font-size:13.5px; letter-spacing:.01em;
+  outline:none; -webkit-user-select:text; user-select:text;
+}
+.voice-in input::placeholder{ color:var(--dimmer); }
+.voice-in input:focus{ border-color:var(--c); box-shadow:0 0 0 3px rgba(56,245,255,.1); }
+
+/* 대화 기록 창 */
+.vlog{
+  position:fixed; left:12px; right:12px; margin:0 auto;
+  bottom:calc(var(--bottom-h, 190px) + 10px);
+  width:min(620px, calc(100vw - 24px));
+  max-height:min(46vh, 420px);
+  z-index:150;
+  display:flex; flex-direction:column;
+  border:1px solid var(--hair-2); border-radius:12px;
+  background:rgba(3,10,15,.96);
+  box-shadow:0 24px 70px rgba(0,0,0,.66), 0 0 0 1px rgba(3,7,11,.6) inset;
+  backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px);
+  animation:vlogIn .18s ease both;
+}
+.vlog[hidden]{ display:none; }
+@keyframes vlogIn{ from{ opacity:0; transform:translateY(9px) } to{ opacity:1; transform:none } }
+.vlog-head{
+  display:flex; align-items:center; gap:8px; flex:0 0 auto;
+  padding:7px 9px 7px 12px; border-bottom:1px solid var(--hair);
+  font-family:var(--f-display); font-size:9.5px; letter-spacing:.2em; color:var(--c);
+}
+.vlog-sub{
+  font-family:var(--f-ui); font-size:10px; letter-spacing:.06em;
+  color:var(--dimmer); margin-left:auto; margin-right:4px;
+}
+.vlog-list{
+  list-style:none; margin:0; padding:10px 12px 12px;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+  display:flex; flex-direction:column; gap:9px; min-height:0;
+}
+.vlog-list::-webkit-scrollbar{ width:5px; }
+.vlog-list::-webkit-scrollbar-thumb{ background:rgba(56,245,255,.28); border-radius:3px; }
+.vlog-item{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.vlog-who{
+  font-family:var(--f-display); font-size:8.5px; letter-spacing:.2em; color:var(--dimmer);
+}
+.vlog-item[data-role="user"] .vlog-who{ color:rgba(56,245,255,.85); }
+.vlog-item[data-role="pickle"] .vlog-who{ color:rgba(126,240,200,.9); }
+.vlog-t{
+  font-size:13px; line-height:1.48; color:var(--ink); word-break:break-word;
+  -webkit-user-select:text; user-select:text;
+}
+.vlog-item[data-role="pickle"] .vlog-t{ color:#dffff4; }
+.vlog-t .vlog-time{ font-family:var(--f-mono); font-size:9.5px; color:var(--dimmer); margin-left:6px; }
+.vlog-empty{ margin:0; padding:0 12px 13px; font-size:12px; color:var(--dimmer); }
+.vlog-empty[hidden]{ display:none; }
+
+@media (max-width: 700px){
+  .voice-head{ display:none; }
+  .mic .mic-txt{ display:none; }
+  .mic{ padding:6px 8px; }
+  .mic svg{ width:17px; height:17px; }
+  .voice-actions .btn.tiny{ padding:3px 6px; }
+}

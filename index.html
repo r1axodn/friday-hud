@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 <script>
   window.__errs = [];
   addEventListener("error", function (e) { window.__errs.push(String((e && e.message) || e)); });
@@ -145,6 +145,47 @@
       </div>
     </div>
 
+    <!-- 음성 대화 (마이크 → 피클) -->
+    <section class="voice" id="voiceBar" aria-label="피클 음성 대화">
+      <div class="voice-head">
+        <span class="vh-id">VOICE LINK</span>
+        <span class="vh-sep" aria-hidden="true">//</span>
+        <span class="vh-state" id="vState"><i class="vh-dot" aria-hidden="true"></i><b id="vStateTxt">대기</b></span>
+      </div>
+
+      <button class="mic" id="btnMic" type="button" aria-pressed="false"
+              title="누르고 있는 동안 말하세요 — 손을 떼면 전송">
+        <span class="mic-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2.6" width="6" height="11" rx="3"/>
+            <path d="M5.5 11.4a6.5 6.5 0 0 0 13 0M12 17.9v3.5M9 21.4h6"/>
+          </svg>
+        </span>
+        <span class="mic-txt" id="micTxt">HOLD TO TALK</span>
+      </button>
+
+      <p class="voice-line" id="vLine">마이크를 길게 누르고 말하면 피클이 듣고, 답을 소리로 읽어 줍니다</p>
+
+      <div class="voice-actions">
+        <button class="btn tiny ghost" id="btnText" type="button"
+                title="음성 인식이 안 될 때 텍스트로 입력">입력</button>
+        <button class="btn tiny ghost" id="btnTts" type="button" aria-pressed="true"
+                title="피클의 답을 소리로 읽기">🔊 읽기</button>
+        <button class="btn tiny ghost" id="btnVlog" type="button" aria-pressed="false"
+                title="대화 기록 펼치기 (V)">LOG</button>
+        <a class="btn tiny call" id="btnCall" href="pickle://call"
+           title="피클 앱 음성 통화를 바로 겁니다">📞 지금 통화</a>
+      </div>
+    </section>
+
+    <form class="voice-in" id="vForm" hidden autocomplete="off">
+      <input id="vInput" type="text" enterkeyhint="send" maxlength="600"
+             placeholder="여기에 말을 적고 Enter — 예: 오늘 일정 알려줘" aria-label="피클에게 보낼 말">
+      <button class="btn tiny" id="vSend" type="submit">보내기</button>
+      <button class="btn tiny ghost" id="vCancel" type="button">닫기</button>
+    </form>
+
     <section class="rail">
       <div class="rail-head">
         <span>RECENT FEED</span>
@@ -196,6 +237,16 @@
   </div>
 </div>
 
+<!-- 음성 대화 기록 (LOG 버튼 / V) -->
+<div class="vlog" id="vlog" hidden aria-label="음성 대화 기록">
+  <div class="vlog-head">
+    <span>VOICE LOG</span><span class="vlog-sub">나 ↔ FRIDAY</span>
+    <button class="icon-btn" id="btnVlogClose" type="button" aria-label="닫기">✕</button>
+  </div>
+  <ul class="vlog-list" id="vlogList"></ul>
+  <p class="vlog-empty" id="vlogEmpty">아직 대화가 없어요 · 마이크를 길게 눌러 말해 보세요</p>
+</div>
+
 <!-- 긴급 알림 배너 자리 -->
 <div class="banners" id="banners" aria-live="assertive"></div>
 
@@ -204,6 +255,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"
         onerror="window.__sbLoadFail=true"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>

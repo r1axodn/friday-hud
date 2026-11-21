@@ -126,6 +126,27 @@ curl -s -X POST "$BASE/rest/v1/rpc/hud_push" \
 
 ---
 
+## 3.5 음성 대화 (VOICE LINK)
+
+화면 아래 **VOICE LINK** 줄에서 마이크를 눌러 말하면 FRIDAY 가 듣고, 답을 화면에 띄우고 소리로 읽어 줍니다.
+
+| 조작 | 하는 일 |
+| --- | --- |
+| 마이크 **길게 누르고 말하기** (데스크톱은 `M` 키) | 말하는 동안만 듣습니다. 손을 떼면 전송 |
+| **TTS** | 답을 소리로 읽기 on/off (기억됨) |
+| **입력** | 음성 인식이 안 되는 브라우저·조용한 곳에서 글로 보내기 |
+| **LOG** (`V` 키) | 나 ↔ FRIDAY 대화 기록 (최근 60마디, 기기에 저장) |
+| **지금 통화** | `pickle://call` — 피클 앱 음성 통화로 넘어감 |
+
+흐름: 발화는 Web Speech API(`ko-KR`) → RPC `voice_say`(HUD, 익명) → 피클이 `voice_poll` 로 읽고 `voice_reply` 로 답 → HUD 는 Realtime INSERT 로 받아 화면·TTS.
+
+- **먼저 `supabase/hud_voice.sql` 을 한 번 실행해야 합니다.** 안 하면 화면에 `음성 DB가 아직 없어요` 가 뜹니다.
+- 답만 공개됩니다: `hud_voice` 의 RLS 는 `role='pickle'` 행만 anon 읽기를 허용하고, 사용자 발화는 시크릿을 가진 쪽만 읽습니다.
+- 익명 발화는 분당 20건 상한, 대화는 3일 뒤 자동 삭제.
+- 답을 직접 밀어 넣거나 읽으려면 `work/friday-hud-voice.sh`(같은 폴더 밖, 작업용) 사용.
+
+---
+
 ## 4. 보안
 
 - anon(publishable) 키는 공개되어도 됩니다. `hud_panels` 는 **읽기만** 허용되고
@@ -176,5 +197,6 @@ index.html        HUD 마크업
 style.css         다크 네온 스타일 · 가로/세로 반응형
 app.js            시계 · D-DAY · Realtime 구독 · 카드/배너 렌더 · 데모
 manifest.webmanifest, sw.js, icon-*.png, apple-touch-icon.png, icon.svg   PWA
-supabase/hud.sql  DB 설정 SQL (공개용 placeholder 사본)
+supabase/hud.sql        DB 설정 SQL (공개용 placeholder 사본)
+supabase/hud_voice.sql  음성 대화 테이블·RPC 설정 SQL (1회 실행)
 ```
